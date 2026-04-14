@@ -1,18 +1,22 @@
 import React from 'react'
-import { Link, Routes, Route } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
+import NavBar from './Components/NavBar'
 import Dashboard from './pages/Dashboard'
 
-export default function App() {
-  return (
-    <div className="app">
-      <nav className="nav">
-        <Link to="/">Dashboard</Link>
-      </nav>
-      <main className="main">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-        </Routes>
-      </main>
-    </div>
+
+const App = () => {
+    return (
+    <>
+      <div className="pageLayout" style={{"height": "100%"}}>
+        <NavBar />
+        <div className="main">
+          <Routes>
+            <Route exact path="/" element={<Dashboard />} />
+          </Routes>
+        </div>
+      </div>
+    </>
   )
 }
+
+export default App;
