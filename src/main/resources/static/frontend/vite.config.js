@@ -4,10 +4,10 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/react-app/',
+  base: '/',
   build: {
     // output into src/main/resources/static/react-app
-    outDir: path.resolve(__dirname, '../react-app'),
+    outDir: path.resolve(__dirname, '../'),
     emptyOutDir: true
   }
 })
