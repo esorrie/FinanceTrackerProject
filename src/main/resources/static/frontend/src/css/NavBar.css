@@ -1,0 +1,84 @@
+.navBarMain {
+    display: flex;
+    flex-direction: row;
+    padding: 0.5rem 1rem;
+    background-color: #333;
+    color: white;
+}
+
+.navBarTitle {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    align-self: center;
+    padding-left: 2rem;
+}
+
+.navBarContent {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-left: auto;
+    gap: 2rem;
+}
+
+.navBarContentEnd {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding-right: 4rem;
+    margin-left: auto;
+}
+
+.navBarMain a {
+    color: white;
+    text-decoration: none;
+    font-size: 3rem;
+}
+.navBarContent a {
+    color: white;
+    text-decoration: none;
+    font-size: 1.3rem;
+}
+
+/* Search bar: sleek, modern styling */
+.navBarSearch {
+    display: flex;
+    align-items: center;
+    background: rgba(255,255,255,0.06);
+    padding: 6px 8px;
+    border-radius: 999px;
+    transition: box-shadow 0.2s ease, background 0.2s ease;
+    backdrop-filter: blur(6px);
+}
+
+.navBarSearchInput {
+    background: transparent;
+    border: none;
+    color: white;
+    padding: 6px 10px;
+    width: 180px;
+    transition: width 0.25s ease;
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.navBarSearchInput::placeholder {
+    color: rgba(255,255,255,0.7);
+    font-weight: 500;
+}
+
+.navBarSearchInput:focus {
+    width: 300px;
+}
+
+.navBarSearch:focus-within {
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+    background: rgba(255,255,255,0.09);
+}
+
+@media (max-width: 600px) {
+    .navBarSearchInput { width: 120px; }
+    .navBarSearchInput:focus { width: 200px; }
+    .navBarContentEnd { padding-right: 1rem; }
+}
