@@ -1,0 +1,24 @@
+0000000000000000000000000000000000000000 482c715f2b7848e24c51ecb0303d45378cc02f2a jsv832 <jose102@live.com.pt> 1776201724 +0100	clone: from https://github.com/esorrie/FinanceTrackerProject.git
+482c715f2b7848e24c51ecb0303d45378cc02f2a 482c715f2b7848e24c51ecb0303d45378cc02f2a jsv832 <jose102@live.com.pt> 1776201771 +0100	checkout: moving from main to JoseBranch
+482c715f2b7848e24c51ecb0303d45378cc02f2a e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776201828 +0100	checkout: moving from JoseBranch to secondMain
+e189144fc5aaf1a38eae0808b78889898cae6b27 482c715f2b7848e24c51ecb0303d45378cc02f2a jsv832 <jose102@live.com.pt> 1776201900 +0100	checkout: moving from secondMain to JoseBranch
+482c715f2b7848e24c51ecb0303d45378cc02f2a e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776201907 +0100	merge secondMain: Fast-forward
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776203795 +0100	checkout: moving from JoseBranch to secondMain
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776203878 +0100	checkout: moving from secondMain to JoseBranch
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776203906 +0100	reset: moving to HEAD
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776203914 +0100	checkout: moving from JoseBranch to secondMain
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776203930 +0100	checkout: moving from secondMain to JoseBranch
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776203957 +0100	checkout: moving from JoseBranch to secondMain
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776204157 +0100	reset: moving to HEAD
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776204238 +0100	checkout: moving from secondMain to JoseBranch
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776204269 +0100	checkout: moving from JoseBranch to secondMain
+e189144fc5aaf1a38eae0808b78889898cae6b27 482c715f2b7848e24c51ecb0303d45378cc02f2a jsv832 <jose102@live.com.pt> 1776204276 +0100	checkout: moving from secondMain to main
+482c715f2b7848e24c51ecb0303d45378cc02f2a e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776204335 +0100	checkout: moving from main to secondMain
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776204508 +0100	checkout: moving from secondMain to JoseBranch
+0000000000000000000000000000000000000000 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776241241 +0100	checkout: moving from master to JoseBranch
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776241529 +0100	checkout: moving from JoseBranch to secondMain
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776241655 +0100	checkout: moving from secondMain to JoseBranch
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776241732 +0100	checkout: moving from JoseBranch to secondMain
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776242084 +0100	checkout: moving from secondMain to JoseBranch
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776242294 +0100	checkout: moving from JoseBranch to secondMain
+e189144fc5aaf1a38eae0808b78889898cae6b27 e189144fc5aaf1a38eae0808b78889898cae6b27 jsv832 <jose102@live.com.pt> 1776242305 +0100	checkout: moving from secondMain to JoseBranch
