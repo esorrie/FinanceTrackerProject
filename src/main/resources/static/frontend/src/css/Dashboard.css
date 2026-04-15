@@ -1,0 +1,39 @@
+.dashboard {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    columns: 3;
+    margin-right: 10%;
+    margin-left: 10%;
+    height: 100vh;
+}
+
+.dashPortfolioContainer {
+    display: flex;
+    flex-direction: column;
+    width: 60%;
+}
+
+.dashPortfolioHeader {
+    font-size: 1.5em;
+    font-weight: bold;
+    /* margin: 20px 30px; */
+    /* border: 0.25rem solid black; */
+    /* border-radius: 0.5rem; */
+}
+
+.dashPortfolioData {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.otherDash {
+    display: flex;
+    flex-direction: column;
+    width: 40%;
+}
+
+.topWinners {
+    height: 50%;
+}
