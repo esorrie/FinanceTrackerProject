@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import '../css/NavBar.css';
+import logo from "./Images/SpendX logo 3.png";
 
 const NavBar = () => {
     const [query, setQuery] = useState("");
@@ -16,7 +17,8 @@ const NavBar = () => {
             <div className="navBarMain">
                 <div className="navBarTitle">
                     <NavLink to="/">
-                        SpendX
+                        {/* <img src="src\main\resources\static\frontend\src\Components\Images\SpendX logo.png" alt="Finance Tracker Logo" className="navBarLogo" /> */}
+                        <img src={logo} alt="Finance Tracker Logo" className="navBarLogo" />
                     </NavLink>
                 </div>
                 <div className="navBarContent">
