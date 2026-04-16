@@ -5,7 +5,6 @@ import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -26,57 +25,7 @@ public class YahooFinanceClient {
     }
 
     public List<YahooQuote> fetchQuotes(Collection<String> symbols) {
-        if (useRapidApiMode()) {
-            return fetchQuotesViaRapidApi(symbols);
-        }
         return fetchQuotesViaPublicYahoo(symbols);
-    }
-
-    private List<YahooQuote> fetchQuotesViaRapidApi(Collection<String> symbols) {
-        String symbolParam = symbols.stream().collect(Collectors.joining(","));
-        validateRapidApiConfiguration();
-
-        try {
-            YahooQuoteApiResponse response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder.path(properties.getQuotePath())
-                            .queryParam("symbols", symbolParam)
-                            .queryParamIfPresent("region", toOptionalParam(properties.getRegion()))
-                            .build())
-                    .headers(headers -> {
-                        headers.set(HttpHeaders.ACCEPT, "application/json");
-                        if (StringUtils.hasText(properties.getUserAgent())) {
-                            headers.set(HttpHeaders.USER_AGENT, properties.getUserAgent());
-                        }
-                        if (StringUtils.hasText(properties.getRapidApiKey())) {
-                            headers.set("x-rapidapi-key", properties.getRapidApiKey());
-                        }
-                        if (StringUtils.hasText(properties.getRapidApiHost())) {
-                            headers.set("x-rapidapi-host", properties.getRapidApiHost());
-                        }
-                    })
-                    .retrieve()
-                    .body(YahooQuoteApiResponse.class);
-
-            if (response == null || response.quoteResponse() == null || response.quoteResponse().result() == null) {
-                return List.of();
-            }
-
-            return response.quoteResponse().result();
-        } catch (RestClientResponseException ex) {
-            throw new IllegalStateException(
-                    "Yahoo Finance RapidAPI request failed with status "
-                            + ex.getStatusCode().value()
-                            + " ("
-                            + ex.getStatusText()
-                            + "). Body: "
-                            + summarizeBody(ex.getResponseBodyAsString()),
-                    ex
-            );
-        } catch (ResourceAccessException ex) {
-            throw new IllegalStateException("Could not reach Yahoo Finance endpoint. Check internet/proxy/firewall.", ex);
-        } catch (RestClientException ex) {
-            throw new IllegalStateException("Failed to fetch quotes from Yahoo Finance: " + ex.getMessage(), ex);
-        }
     }
 
     private List<YahooQuote> fetchQuotesViaPublicYahoo(Collection<String> symbols) {
@@ -147,20 +96,6 @@ public class YahooFinanceClient {
         return java.util.Optional.of(value);
     }
 
-    private void validateRapidApiConfiguration() {
-        if (!StringUtils.hasText(properties.getRapidApiKey()) || !StringUtils.hasText(properties.getRapidApiHost())) {
-            throw new IllegalStateException(
-                    "RapidAPI mode requires YAHOO_FINANCE_API_KEY and YAHOO_FINANCE_API_HOST."
-            );
-        }
-    }
-
-    private boolean useRapidApiMode() {
-        return properties.getBaseUrl().contains("rapidapi.com")
-                || StringUtils.hasText(properties.getRapidApiKey())
-                || StringUtils.hasText(properties.getRapidApiHost());
-    }
-
     private String summarizeBody(String responseBody) {
         if (!StringUtils.hasText(responseBody)) {
             return "<empty>";
@@ -181,12 +116,6 @@ public class YahooFinanceClient {
             String currency,
             BigDecimal regularMarketPrice
     ) {
-    }
-
-    private record YahooQuoteApiResponse(QuoteResponse quoteResponse) {
-    }
-
-    private record QuoteResponse(List<YahooQuote> result, Object error) {
     }
 
     private record YahooChartApiResponse(Chart chart) {
