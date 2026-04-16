@@ -1,0 +1,114 @@
+.portfolioMainContainer {
+    display: flex;
+    flex-direction: row;
+    margin-right: 10%;
+    margin-left: 10%;
+}
+
+.portfolioPreviewContainer {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 15px;
+    margin: 20px 15px 20px 30px;
+    box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.75);
+    border-radius: 0.5rem;
+    width: 25%;
+}
+
+.portfolioHeader {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.portfolioValue {
+    margin-top: 5px;
+    font-size: 1em;
+    font-weight: 500;
+}
+
+.portfolioContentContainer {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    margin-top: 20px;
+}
+
+.portfolioPerformance {
+    font-size: 0.75em;
+    font-weight: 300;
+}
+
+.portfolioGraphContainer {
+    padding: 15px 10px;
+    height: 200px;
+    box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.75);
+    border-radius: 0.5rem;
+}
+
+.portfolioAssetsContainer {
+    display: flex;
+    flex-direction: column;
+    margin-top: 20px;
+    padding: 15px 15px;
+    height: 200px;
+    box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.75);
+    border-radius: 0.5rem;
+}
+
+.portfolioAssetsHeader {
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.portfolioAssetsListContainer {
+    overflow-y: auto;
+    flex: 1 1 auto;
+}
+
+.portfolioAssetsList {
+    font-size: 0.7em;
+    font-weight: 300;
+    border-top: 1px solid #ccc;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+.portfolioAllocationContainer {
+    display: flex;
+    flex-direction: column;
+    margin-top: 20px;
+    padding: 15px 10px;
+    height: 200px;
+    box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.75);
+    border-radius: 0.5rem;
+}
+
+.portfolioAllocationHeader {
+    margin-bottom: 10px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.portfolioAllocationListContainer {
+    overflow-y: auto;
+    flex: 1 1 auto;
+}
+
+.portfolioAllocationList {
+    font-size: 0.7em;
+    font-weight: 300;
+    border-top: 1px solid #ccc;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+
+.portfolioDataContainer {
+    padding: 20px 30px;
+    margin: 20px 30px 20px 15px;;
+    box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.75);
+    border-radius: 0.5rem;
+    width: 75%;
+}
