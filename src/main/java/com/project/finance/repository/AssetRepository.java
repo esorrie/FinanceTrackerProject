@@ -8,3 +8,4 @@ public interface AssetRepository extends JpaRepository<Asset, Integer> {
 
     Optional<Asset> findByAssetSymbolIgnoreCase(String assetSymbol);
 }
+

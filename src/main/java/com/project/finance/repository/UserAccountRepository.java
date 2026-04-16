@@ -8,3 +8,4 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Intege
 
     Optional<UserAccount> findByUsernameIgnoreCase(String username);
 }
+
