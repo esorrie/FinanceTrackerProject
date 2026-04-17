@@ -1,0 +1,56 @@
+.dashboard {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    columns: 3;
+    margin-right: 10%;
+    margin-left: 10%;
+   
+   
+}
+
+.dashPortfolioContainer {
+    display: flex;
+    flex-direction: column;
+    width: 60%;
+}
+
+.dashPortfolioHeader {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: rgb(34, 34, 34);
+    margin: 20px 1px;
+    box-shadow: 0 0 10px 
+    rgba(0, 196, 204, 0.8);
+    background-color: aliceblue;
+     border-radius: 0.5rem; 
+    width: fit-content;
+    padding:7px 15px;
+
+    
+}
+.dashPortfolioHeader:hover {
+    box-shadow: 0 0 17px rgba(0, 196, 204, 1);
+    /* background-color: rgb(34, 34, 34); */
+}
+
+.dashPortfolioHeader {
+    transition: all 0.4s ease-out;
+}
+
+
+.dashPortfolioData {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.otherDash {
+    display: flex;
+    flex-direction: column;
+    width: 40%;
+}
+
+.topWinners {
+    height: 50%;
+}
