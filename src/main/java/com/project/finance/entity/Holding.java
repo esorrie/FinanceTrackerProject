@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
+@SuppressWarnings({"JpaDataSourceORMInspection", "unused"})
 @Table(name = "tbl_holding")
 public class Holding {
 
@@ -112,4 +113,3 @@ public class Holding {
         this.purchaseDate = purchaseDate;
     }
 }
-

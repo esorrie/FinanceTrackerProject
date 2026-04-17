@@ -4,10 +4,13 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/react-app/',
-  build: {
-    // output into src/main/resources/static/react-app
-    outDir: path.resolve(__dirname, '../react-app'),
-    emptyOutDir: true
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   }
 })

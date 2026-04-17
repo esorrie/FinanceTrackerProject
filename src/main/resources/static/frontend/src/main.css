@@ -1,5 +1,9 @@
-html, body {
-    margin: 0;
-    padding: 0;
+html, body, #root {
+
     font-family: 'Roboto', sans-serif;
-}S
+    height: 95vh;
+    width: 100vw;
+    background-color: rgb(41, 41, 41);
+     cursor: default !important;
+    
+}
