@@ -38,6 +38,7 @@ const Portfolio = () => {
                 <div className="portfolioData">This is where the portfolio details will be displayed.</div>
             </div>
         </div>
+        </>
     )
 }
 
