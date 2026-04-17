@@ -3,7 +3,7 @@ import { Routes, Route } from 'react-router-dom'
 import NavBar from './Components/NavBar'
 import Dashboard from './pages/Dashboard'
 import Portfolio from './pages/Portfolio'
-
+import Stock from './pages/Stocks'
 
 const App = () => {
     return (

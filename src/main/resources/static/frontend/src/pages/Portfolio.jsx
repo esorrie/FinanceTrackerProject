@@ -5,16 +5,16 @@ const Portfolio = () => {
 
 
     return (
-        <div className="portfolioMainContainer">
-            <div className="portfolioPreviewContainer">
-                <div className="portfolioHeader"> Portfolio</div>
-                <div className="portfolioValue"> Portfolio Value </div>
-                <div className="portfolioPerformance"> Portfolio performance </div>
-                
-                <div className="portfolioContentContainer">
-                    <div className="portfolioGraphContainer">
-                        <div className="portfolioGraph"> Portfolio graph </div>
-                    </div>
+        <>
+            <div className="portfolioMainContainer">
+                <div className="portfolioPreviewContainer">
+                    <div className="portfolioValue"> Portfolio Value </div>
+                    <div className="portfolioPerformance"> Portfolio performance </div>
+                    
+                    <div className="portfolioContentContainer">
+                        <div className="portfolioGraphContainer">
+                            <div className="portfolioGraph"> Portfolio graph </div>
+                        </div>
 
                     <div className="portfolioAssetsContainer">
                         <div className="portfolioAssetsHeader"> Investments </div>
@@ -31,12 +31,12 @@ const Portfolio = () => {
                         </div>
                     </div>
                 </div>
+                    
+                <div className="portfolioDataContainer">
+                    <div className="portfolioData">This is where the portfolio details will be displayed.</div>
+                </div>
             </div>
-                
-            <div className="portfolioDataContainer">
-                <div className="portfolioData">This is where the portfolio details will be displayed.</div>
-            </div>
-        </div>
+        </>
     )
 }
 
