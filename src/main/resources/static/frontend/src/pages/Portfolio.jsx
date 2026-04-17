@@ -16,19 +16,18 @@ const Portfolio = () => {
                             <div className="portfolioGraph"> Portfolio graph </div>
                         </div>
 
-                        <div className="portfolioAssetsContainer">
-                            <div className="portfolioAssetsHeader"> Investments </div>
-                            <div className="portfolioAssetsListContainer">
-                                <div className="portfolioAssetsList"> Asset 1 </div>
-                            </div>
+                    <div className="portfolioAssetsContainer">
+                        <div className="portfolioAssetsHeader"> Investments </div>
+                        <div className="portfolioAssetsListContainer">
+                            <div className="portfolioAssetsList"> Asset 1 </div>
                         </div>
-                        
-                        <div className="portfolioAllocationContainer">
-                            <div className="portfolioAllocationHeader"> Allocations </div>
-                            <div className="portfolioAllocationListContainer">
-                                <div className="portfolioAllocationList"> Allocation 1</div>
+                    </div>
+                    
+                    <div className="portfolioAllocationContainer">
+                        <div className="portfolioAllocationHeader"> Allocations </div>
+                        <div className="portfolioAllocationListContainer">
+                            <div className="portfolioAllocationList"> Allocation 1</div>
 
-                            </div>
                         </div>
                     </div>
                 </div>

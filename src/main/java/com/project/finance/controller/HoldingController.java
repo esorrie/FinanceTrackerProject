@@ -2,11 +2,16 @@ package com.project.finance.controller;
 
 import com.project.finance.dto.HoldingCreateRequest;
 import com.project.finance.dto.HoldingCreateResponse;
+import com.project.finance.dto.HoldingsInCurrencyResponse;
+import com.project.finance.dto.UserCurrencyUpdateResponse;
 import com.project.finance.service.HoldingService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -24,6 +29,34 @@ public class HoldingController {
     public HoldingCreateResponse createHolding(@RequestBody HoldingCreateRequest request) {
         try {
             return holdingService.createHolding(request);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
+        }
+    }
+
+    @GetMapping
+    public HoldingsInCurrencyResponse getHoldings(
+            @RequestParam String username,
+            @RequestParam(required = false) String currency
+    ) {
+        try {
+            return holdingService.getHoldingsInCurrency(username, currency);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
+        }
+    }
+
+    @PatchMapping("/currency")
+    public UserCurrencyUpdateResponse updateUserCurrency(
+            @RequestParam String username,
+            @RequestParam String currency
+    ) {
+        try {
+            return holdingService.updateUserCurrency(username, currency);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
