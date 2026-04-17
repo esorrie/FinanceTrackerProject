@@ -89,37 +89,36 @@ const Stocks = () => {
         <>
             <div className="stocksMainContainer">
                 <div className="stocksListContainer">
-                    {!loading && !error && (
                         <div className="stocksTable">
                             <div className="stocksTableHeader">
-                                <div className="stocksTableColumnTitles">ID</div>
-                                <div className="stocksTableColumnTitles">Symbol</div>
-                                <div className="stocksTableColumnTitles">Name</div>
-                                <div className="stocksTableColumnTitles">Currency</div>
+                                <div className="stocksTableColumnName">Name</div>
+                                <div className="stocksTableColumnSymbol">Symbol</div>
+                                <div className="stocksTableColumnPrice">Price</div>
+                                <div className="stocksTableColumnChange">Change</div>
+                                <div className="stocksTableColumnExchange">Exchange</div>
                             </div>
-                            {/* <div>
+                            <div>
                                 {assets.map(a => (
                                     <>
                                         <div className="assetInfoContainer" key={a.assetId}>
-                                            <div>{a.assetName}</div>
-                                            <div>{a.assetSymbol}</div>
-                                            <div>{a.price}</div>
-                                            <div>{a.change}</div>
-                                            <div>{a.exchange}</div>
+                                            <button
+                                            onClick={() => addToPortfolio(a.assetId, a.assetSymbol)}
+                                            disabled={addingId === a.assetId}
+                                            >
+                                                {addingId === a.assetId ? 'Adding...' : '+'}
+                                            </button>
+                                            <div className="assetName">{a.assetName}</div>
+                                            <div className="assetSymbol">{a.assetSymbol}</div>
+                                            <div className="assetPrice">{a.price}</div>
+                                            <div className="assetChange">{a.change}</div>
+                                            <div className="assetExchange">{a.exchange}</div>
                                         </div>
-                                        <button
-                                        onClick={() => addToPortfolio(a.assetId, a.assetSymbol)}
-                                        disabled={addingId === a.assetId}
-                                        >
-                                            {addingId === a.assetId ? 'Adding...' : '+'}
-                                        </button>
                                     </>
                                 ))}
-                            </div> */}
+                            </div>
                             <div> Asset 1 </div>
                         
                         </div>
-                    )}
                 </div>
             </div>
         </>

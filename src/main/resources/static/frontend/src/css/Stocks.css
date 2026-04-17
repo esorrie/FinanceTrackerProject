@@ -27,4 +27,63 @@
     border-left : 3px solid rgba(255, 255, 255, 0.3);
     padding-left: 10px;
 }
+.stocksTableColumnSymbol {
+    font-size: 1.5em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 90px;
+    
+}
+.stocksTableColumnPrice {
+    font-size: 1.5em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 100px;
+}
+.stocksTableColumnChange {
+    font-size: 1.5em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 100px;
+}
 
+.stocksTableColumnExchange {
+    font-size: 1.5em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 10px;
+}
+
+.assetInfoContainer {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px 15px;
+    border-top : 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.assetName {
+    font-size: 1.25em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 10px;
+}
+.assetSymbol {
+    font-size: 1.25em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 90px;
+    
+}
+.assetPrice {
+    font-size: 1.25em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 100px;
+}
+.assetChange {
+    font-size: 1.25em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 100px;
+}
