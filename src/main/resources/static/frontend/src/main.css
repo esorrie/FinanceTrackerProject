@@ -4,5 +4,6 @@ html, body, #root {
     height: 95vh;
     width: 100vw;
     background-color: rgb(41, 41, 41);
+     cursor: default !important;
     
 }
