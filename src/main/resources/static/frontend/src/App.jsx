@@ -3,7 +3,7 @@ import { Routes, Route } from 'react-router-dom'
 import NavBar from './Components/NavBar'
 import Dashboard from './pages/Dashboard'
 import Portfolio from './pages/Portfolio'
-
+import Stock from './pages/Stocks'
 
 const App = () => {
     return (
@@ -12,8 +12,9 @@ const App = () => {
         <NavBar />
         <div className="main">
           <Routes>
-            <Route exact path="/" element={<Dashboard />} />
-            <Route path="/portfolio" element={<Portfolio />} />
+            <Route exact path="/" element={<Portfolio />} />
+            {/* <Route exact path="/" element={<Dashboard />} /> */}
+            {/* <Route path="/stocks" element={<Stock />} />  */}
           </Routes>
         </div>
       </div>

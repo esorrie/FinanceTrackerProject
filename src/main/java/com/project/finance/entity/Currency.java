@@ -16,7 +16,7 @@ public class Currency {
     @Column(name = "currency_id")
     private Integer currencyId;
 
-    @Column(name = "currency_code", nullable = false, unique = true, length = 3)
+    @Column(name = "currency_code", nullable = false, unique = true, length = 3, columnDefinition = "CHAR(3)")
     private String currencyCode;
 
     @Column(name = "symbol", nullable = false, length = 3)
