@@ -16,6 +16,7 @@ public record HoldingCurrencyViewResponse(
         BigDecimal avgPurchasePriceTarget,
         BigDecimal lastPriceSource,
         BigDecimal lastPriceTarget,
+        BigDecimal portfolioTotalValueTarget,
         BigDecimal investedAmountTarget,
         BigDecimal marketValueTarget,
         BigDecimal unrealizedPnlTarget

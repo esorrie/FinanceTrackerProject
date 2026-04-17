@@ -66,7 +66,10 @@ class ExchangeRateStartupServiceTest {
                                 "EUR/USD",
                                 "EUR/USD",
                                 "USD",
-                                new BigDecimal("1.1000")
+                                new BigDecimal("1.1000"),
+                                null,
+                                null,
+                                null
                         )
                 );
             }

@@ -130,7 +130,10 @@ public class YahooFinanceClient {
                     meta.shortName(),
                     meta.longName(),
                     meta.currency(),
-                    meta.regularMarketPrice()
+                    meta.regularMarketPrice(),
+                    meta.regularMarketOpen(),
+                    meta.regularMarketPreviousClose(),
+                    resolveStockExchange(meta.fullExchangeName(), meta.exchangeName(), meta.exchange())
             );
         } catch (RestClientResponseException ex) {
             throw new IllegalStateException(
@@ -182,7 +185,14 @@ public class YahooFinanceClient {
                     readTextField(quoteNode, "shortName"),
                     readTextField(quoteNode, "longName"),
                     readTextField(quoteNode, "currency"),
-                    readDecimalField(quoteNode, "regularMarketPrice")
+                    readDecimalField(quoteNode, "regularMarketPrice"),
+                    readDecimalField(quoteNode, "regularMarketOpen"),
+                    readDecimalField(quoteNode, "regularMarketPreviousClose"),
+                    resolveStockExchange(
+                            readTextField(quoteNode, "fullExchangeName"),
+                            readTextField(quoteNode, "exchangeName"),
+                            readTextField(quoteNode, "exchange")
+                    )
             ));
         }
 
@@ -296,6 +306,19 @@ public class YahooFinanceClient {
         return Optional.of(value);
     }
 
+    private String resolveStockExchange(String fullExchangeName, String exchangeName, String exchangeCode) {
+        if (StringUtils.hasText(fullExchangeName)) {
+            return fullExchangeName.trim();
+        }
+        if (StringUtils.hasText(exchangeName)) {
+            return exchangeName.trim();
+        }
+        if (StringUtils.hasText(exchangeCode)) {
+            return exchangeCode.trim();
+        }
+        return null;
+    }
+
     private String summarizeBody(String responseBody) {
         if (!StringUtils.hasText(responseBody)) {
             return "<empty>";
@@ -314,7 +337,10 @@ public class YahooFinanceClient {
             String shortName,
             String longName,
             String currency,
-            BigDecimal regularMarketPrice
+            BigDecimal regularMarketPrice,
+            BigDecimal regularMarketOpen,
+            BigDecimal regularMarketPreviousClose,
+            String stockExchange
     ) {
     }
 
@@ -338,7 +364,12 @@ public class YahooFinanceClient {
             String shortName,
             String longName,
             String currency,
-            BigDecimal regularMarketPrice
+            BigDecimal regularMarketPrice,
+            BigDecimal regularMarketOpen,
+            BigDecimal regularMarketPreviousClose,
+            String fullExchangeName,
+            String exchangeName,
+            String exchange
     ) {
     }
 }

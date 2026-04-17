@@ -16,7 +16,6 @@ import com.project.finance.entity.ExchangeRate;
 import com.project.finance.entity.Holding;
 import com.project.finance.entity.Portfolio;
 import com.project.finance.entity.UserAccount;
-import com.project.finance.repository.AssetHistoryRepository;
 import com.project.finance.repository.AssetRepository;
 import com.project.finance.repository.CurrencyRepository;
 import com.project.finance.repository.ExchangeRateRepository;
@@ -42,8 +41,6 @@ class HoldingServiceCurrencyTest {
     @Mock
     private AssetRepository assetRepository;
     @Mock
-    private AssetHistoryRepository assetHistoryRepository;
-    @Mock
     private ExchangeRateRepository exchangeRateRepository;
     @Mock
     private UserAccountRepository userAccountRepository;
@@ -60,7 +57,6 @@ class HoldingServiceCurrencyTest {
                 yahooFinanceClient,
                 currencyRepository,
                 assetRepository,
-                assetHistoryRepository,
                 exchangeRateRepository,
                 userAccountRepository,
                 portfolioRepository,
@@ -118,7 +114,10 @@ class HoldingServiceCurrencyTest {
                 "EUR/USD",
                 "EUR/USD",
                 "USD",
-                new BigDecimal("1.1000")
+                new BigDecimal("1.1000"),
+                null,
+                null,
+                null
         );
 
         when(userAccountRepository.findByUsernameIgnoreCase("bob")).thenReturn(Optional.of(user));
