@@ -14,6 +14,7 @@ public record HoldingCreateResponse(
         BigDecimal units,
         BigDecimal avgPurchasePrice,
         BigDecimal lastPrice,
+        BigDecimal portfolioTotalValue,
         BigDecimal investedAmount,
         BigDecimal marketValue,
         BigDecimal unrealizedPnl

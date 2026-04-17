@@ -1,8 +1,6 @@
 package com.project.finance.service;
 
 import com.project.finance.dto.MarketDataStockImportResponse;
-import com.project.finance.repository.AssetRepository;
-import com.project.finance.repository.CurrencyRepository;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -15,7 +13,6 @@ import org.springframework.stereotype.Service;
 public class AssetCatalogStartupService {
 
     private static final Logger logger = LoggerFactory.getLogger(AssetCatalogStartupService.class);
-    private static final long MIN_EXISTING_ROWS_TO_SKIP_IMPORT = 10L;
 
     private static final int PAGE_SIZE = 250;
     private static final int MAX_PAGES = 200;
@@ -31,35 +28,14 @@ public class AssetCatalogStartupService {
     );
 
     private final MarketDataImportService marketDataImportService;
-    private final AssetRepository assetRepository;
-    private final CurrencyRepository currencyRepository;
 
-    public AssetCatalogStartupService(
-            MarketDataImportService marketDataImportService,
-            AssetRepository assetRepository,
-            CurrencyRepository currencyRepository
-    ) {
+    public AssetCatalogStartupService(MarketDataImportService marketDataImportService) {
         this.marketDataImportService = marketDataImportService;
-        this.assetRepository = assetRepository;
-        this.currencyRepository = currencyRepository;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void importAssetCatalogAtStartup() {
-        long assetCount = assetRepository.count();
-        long currencyCount = currencyRepository.count();
-        boolean updateOnlyMode = assetCount >= MIN_EXISTING_ROWS_TO_SKIP_IMPORT
-                && currencyCount >= MIN_EXISTING_ROWS_TO_SKIP_IMPORT;
-        boolean allowCreates = !updateOnlyMode;
-
-        logger.info(
-                "Startup stock import mode={} (allowCreates={}) with tbl_asset={}, tbl_currency={}, threshold={}.",
-                updateOnlyMode ? "update-only" : "full-import",
-                allowCreates,
-                assetCount,
-                currencyCount,
-                MIN_EXISTING_ROWS_TO_SKIP_IMPORT
-        );
+        boolean allowCreates = true;
 
         long startedAt = System.currentTimeMillis();
         int successfulScreeners = 0;
@@ -98,8 +74,7 @@ public class AssetCatalogStartupService {
         }
 
         logger.info(
-                "Startup stock import summary: mode={}, allowCreates={}, successfulScreeners={}/{}, quotesReturned={}, assetsImported={}, newAssets={}, updatedAssets={}, failedScreeners={}, durationMs={}",
-                updateOnlyMode ? "update-only" : "full-import",
+                "Startup stock import summary: allowCreates={}, successfulScreeners={}/{}, quotesReturned={}, assetsImported={}, newAssets={}, updatedAssets={}, failedScreeners={}, durationMs={}",
                 allowCreates,
                 successfulScreeners,
                 STARTUP_SCREENER_IDS.size(),

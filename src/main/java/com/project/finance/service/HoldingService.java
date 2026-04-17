@@ -8,13 +8,11 @@ import com.project.finance.dto.HoldingCreateResponse;
 import com.project.finance.dto.HoldingsInCurrencyResponse;
 import com.project.finance.dto.UserCurrencyUpdateResponse;
 import com.project.finance.entity.Asset;
-import com.project.finance.entity.AssetHistory;
 import com.project.finance.entity.Currency;
 import com.project.finance.entity.ExchangeRate;
 import com.project.finance.entity.Holding;
 import com.project.finance.entity.Portfolio;
 import com.project.finance.entity.UserAccount;
-import com.project.finance.repository.AssetHistoryRepository;
 import com.project.finance.repository.AssetRepository;
 import com.project.finance.repository.CurrencyRepository;
 import com.project.finance.repository.ExchangeRateRepository;
@@ -26,9 +24,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -43,7 +43,6 @@ public class HoldingService {
     private final YahooFinanceClient yahooFinanceClient;
     private final CurrencyRepository currencyRepository;
     private final AssetRepository assetRepository;
-    private final AssetHistoryRepository assetHistoryRepository;
     private final ExchangeRateRepository exchangeRateRepository;
     private final UserAccountRepository userAccountRepository;
     private final PortfolioRepository portfolioRepository;
@@ -53,7 +52,6 @@ public class HoldingService {
             YahooFinanceClient yahooFinanceClient,
             CurrencyRepository currencyRepository,
             AssetRepository assetRepository,
-            AssetHistoryRepository assetHistoryRepository,
             ExchangeRateRepository exchangeRateRepository,
             UserAccountRepository userAccountRepository,
             PortfolioRepository portfolioRepository,
@@ -62,7 +60,6 @@ public class HoldingService {
         this.yahooFinanceClient = yahooFinanceClient;
         this.currencyRepository = currencyRepository;
         this.assetRepository = assetRepository;
-        this.assetHistoryRepository = assetHistoryRepository;
         this.exchangeRateRepository = exchangeRateRepository;
         this.userAccountRepository = userAccountRepository;
         this.portfolioRepository = portfolioRepository;
@@ -84,36 +81,85 @@ public class HoldingService {
 
         Currency currency = findOrCreateCurrency(currencyCode);
         Asset asset = findOrCreateAsset(symbol, quote, currency);
-        saveAssetHistory(asset, currency, quote.regularMarketPrice());
 
         UserAccount user = findOrCreateUser(username, currency);
         Portfolio portfolio = findOrCreatePortfolio(user, portfolioName);
 
-        Holding holding = new Holding();
-        holding.setUser(user);
-        holding.setPortfolio(portfolio);
-        holding.setAsset(asset);
-        holding.setUnits(request.units());
-        holding.setAvgPurchasePrice(request.avgPurchasePrice());
-        holding.setLastPrice(quote.regularMarketPrice());
-        holding = holdingRepository.save(holding);
+        List<Holding> existingUserAssetHoldings = holdingRepository
+                .findByUserUserIdAndAssetAssetIdOrderByHoldingIdAsc(user.getUserId(), asset.getAssetId());
+        Set<Integer> impactedPortfolioIds = new LinkedHashSet<>();
+        for (Holding existing : existingUserAssetHoldings) {
+            if (existing.getPortfolio() != null && existing.getPortfolio().getPortfolioId() != null) {
+                impactedPortfolioIds.add(existing.getPortfolio().getPortfolioId());
+            }
+        }
+        impactedPortfolioIds.add(portfolio.getPortfolioId());
 
-        BigDecimal investedAmount = request.avgPurchasePrice().multiply(request.units());
-        BigDecimal marketValue = quote.regularMarketPrice().multiply(request.units());
+        Holding holding;
+        if (existingUserAssetHoldings.isEmpty()) {
+            holding = new Holding();
+            holding.setUser(user);
+            holding.setPortfolio(portfolio);
+            holding.setAsset(asset);
+            holding.setUnits(request.units());
+            holding.setAvgPurchasePrice(request.avgPurchasePrice().setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+            holding.setLastPrice(quote.regularMarketPrice().setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+            holding.setPortfolioTotalValue(zeroMoney());
+            holding = holdingRepository.save(holding);
+        } else {
+            Holding primaryHolding = selectPrimaryHolding(existingUserAssetHoldings, portfolio.getPortfolioId());
+            BigDecimal existingTotalUnits = existingUserAssetHoldings.stream()
+                    .map(Holding::getUnits)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal existingTotalCost = existingUserAssetHoldings.stream()
+                    .map(item -> item.getAvgPurchasePrice().multiply(item.getUnits()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            BigDecimal combinedUnits = existingTotalUnits.add(request.units());
+            BigDecimal combinedCost = existingTotalCost.add(request.avgPurchasePrice().multiply(request.units()));
+            BigDecimal weightedAveragePrice = combinedCost.divide(combinedUnits, MONEY_SCALE, RoundingMode.HALF_UP);
+
+            primaryHolding.setUnits(combinedUnits);
+            primaryHolding.setAvgPurchasePrice(weightedAveragePrice);
+            primaryHolding.setLastPrice(quote.regularMarketPrice().setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+            if (primaryHolding.getPortfolio() == null) {
+                primaryHolding.setPortfolio(portfolio);
+            }
+            if (primaryHolding.getPortfolioTotalValue() == null) {
+                primaryHolding.setPortfolioTotalValue(zeroMoney());
+            }
+            holding = holdingRepository.save(primaryHolding);
+            Integer primaryHoldingId = holding.getHoldingId();
+
+            List<Holding> duplicateHoldings = existingUserAssetHoldings.stream()
+                    .filter(item -> !item.getHoldingId().equals(primaryHoldingId))
+                    .toList();
+            if (!duplicateHoldings.isEmpty()) {
+                holdingRepository.deleteAll(duplicateHoldings);
+            }
+        }
+
+        refreshPortfolioTotals(impactedPortfolioIds);
+
+        BigDecimal investedAmount = holding.getAvgPurchasePrice().multiply(holding.getUnits())
+                .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        BigDecimal marketValue = holding.getLastPrice().multiply(holding.getUnits())
+                .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
         BigDecimal unrealizedPnl = marketValue.subtract(investedAmount);
 
         return new HoldingCreateResponse(
                 holding.getHoldingId(),
                 user.getUserId(),
-                portfolio.getPortfolioId(),
+                holding.getPortfolio().getPortfolioId(),
                 user.getUsername(),
-                portfolio.getPortfolioName(),
+                holding.getPortfolio().getPortfolioName(),
                 asset.getAssetSymbol(),
                 asset.getAssetName(),
                 currency.getCurrencyCode(),
                 holding.getUnits(),
                 holding.getAvgPurchasePrice(),
                 holding.getLastPrice(),
+                holding.getPortfolioTotalValue(),
                 investedAmount,
                 marketValue,
                 unrealizedPnl
@@ -146,11 +192,15 @@ public class HoldingService {
 
             BigDecimal investedSource = holding.getAvgPurchasePrice().multiply(holding.getUnits());
             BigDecimal marketValueSource = holding.getLastPrice().multiply(holding.getUnits());
+            BigDecimal portfolioTotalValueSource = holding.getPortfolioTotalValue() == null
+                    ? marketValueSource
+                    : holding.getPortfolioTotalValue();
 
             BigDecimal avgPurchasePriceTarget = convertAmount(holding.getAvgPurchasePrice(), exchangeRate);
             BigDecimal lastPriceTarget = convertAmount(holding.getLastPrice(), exchangeRate);
             BigDecimal investedAmountTarget = convertAmount(investedSource, exchangeRate);
             BigDecimal marketValueTarget = convertAmount(marketValueSource, exchangeRate);
+            BigDecimal portfolioTotalValueTarget = convertAmount(portfolioTotalValueSource, exchangeRate);
             BigDecimal unrealizedPnlTarget = marketValueTarget.subtract(investedAmountTarget)
                     .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
 
@@ -171,6 +221,7 @@ public class HoldingService {
                     avgPurchasePriceTarget,
                     holding.getLastPrice(),
                     lastPriceTarget,
+                    portfolioTotalValueTarget,
                     investedAmountTarget,
                     marketValueTarget,
                     unrealizedPnlTarget
@@ -428,11 +479,18 @@ public class HoldingService {
         Asset asset = assetRepository.findByAssetSymbolIgnoreCase(symbol).orElse(null);
 
         String assetName = resolveAssetName(quote);
+        BigDecimal openPrice = quote.regularMarketOpen();
+        BigDecimal closePrice = resolveClosePrice(quote);
+        String stockExchange = normalizeNullableText(quote.stockExchange());
+
         if (asset == null) {
             Asset created = new Asset();
             created.setAssetSymbol(limitLength(symbol, 10));
             created.setAssetName(limitLength(assetName, 50));
             created.setCurrency(currency);
+            created.setOpenPrice(openPrice);
+            created.setClosePrice(closePrice);
+            created.setStockExchange(limitLength(stockExchange, 50));
             return assetRepository.save(created);
         }
 
@@ -447,6 +505,19 @@ public class HoldingService {
             asset.setCurrency(currency);
             changed = true;
         }
+        if (!equalsDecimal(asset.getOpenPrice(), openPrice)) {
+            asset.setOpenPrice(openPrice);
+            changed = true;
+        }
+        if (!equalsDecimal(asset.getClosePrice(), closePrice)) {
+            asset.setClosePrice(closePrice);
+            changed = true;
+        }
+        String normalizedExchange = normalizeNullableText(stockExchange);
+        if (!equalsText(asset.getStockExchange(), normalizedExchange)) {
+            asset.setStockExchange(limitLength(normalizedExchange, 50));
+            changed = true;
+        }
 
         if (changed) {
             asset = assetRepository.save(asset);
@@ -455,12 +526,46 @@ public class HoldingService {
         return asset;
     }
 
-    private void saveAssetHistory(Asset asset, Currency currency, BigDecimal price) {
-        AssetHistory history = new AssetHistory();
-        history.setAsset(asset);
-        history.setCurrency(currency);
-        history.setPrice(price);
-        assetHistoryRepository.save(history);
+    private BigDecimal resolveClosePrice(YahooQuote quote) {
+        if (quote.regularMarketPrice() != null) {
+            return quote.regularMarketPrice();
+        }
+        return quote.regularMarketPreviousClose();
+    }
+
+    private Holding selectPrimaryHolding(List<Holding> holdings, Integer requestedPortfolioId) {
+        if (requestedPortfolioId != null) {
+            for (Holding holding : holdings) {
+                if (holding.getPortfolio() != null
+                        && requestedPortfolioId.equals(holding.getPortfolio().getPortfolioId())) {
+                    return holding;
+                }
+            }
+        }
+        return holdings.get(0);
+    }
+
+    private void refreshPortfolioTotals(Set<Integer> portfolioIds) {
+        for (Integer portfolioId : portfolioIds) {
+            if (portfolioId == null) {
+                continue;
+            }
+
+            List<Holding> portfolioHoldings = holdingRepository.findByPortfolioPortfolioIdOrderByHoldingIdAsc(portfolioId);
+            if (portfolioHoldings.isEmpty()) {
+                continue;
+            }
+
+            BigDecimal totalMarketValue = portfolioHoldings.stream()
+                    .map(holding -> holding.getLastPrice().multiply(holding.getUnits()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+
+            for (Holding holding : portfolioHoldings) {
+                holding.setPortfolioTotalValue(totalMarketValue);
+            }
+            holdingRepository.saveAll(portfolioHoldings);
+        }
     }
 
     private UserAccount findOrCreateUser(String username, Currency currency) {
@@ -500,9 +605,39 @@ public class HoldingService {
     }
 
     private String limitLength(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
         if (value.length() <= maxLength) {
             return value;
         }
         return value.substring(0, maxLength);
+    }
+
+    private String normalizeNullableText(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private boolean equalsDecimal(BigDecimal left, BigDecimal right) {
+        if (left == null && right == null) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.compareTo(right) == 0;
+    }
+
+    private boolean equalsText(String left, String right) {
+        if (!StringUtils.hasText(left) && !StringUtils.hasText(right)) {
+            return true;
+        }
+        if (!StringUtils.hasText(left) || !StringUtils.hasText(right)) {
+            return false;
+        }
+        return left.trim().equalsIgnoreCase(right.trim());
     }
 }

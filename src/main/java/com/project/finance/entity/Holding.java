@@ -43,6 +43,9 @@ public class Holding {
     @Column(name = "last_price", nullable = false, precision = 19, scale = 4)
     private BigDecimal lastPrice;
 
+    @Column(name = "portfolio_total_value", nullable = false, precision = 19, scale = 4)
+    private BigDecimal portfolioTotalValue;
+
     @Column(name = "purchase_date", insertable = false, updatable = false)
     private LocalDateTime purchaseDate;
 
@@ -103,6 +106,14 @@ public class Holding {
 
     public void setLastPrice(BigDecimal lastPrice) {
         this.lastPrice = lastPrice;
+    }
+
+    public BigDecimal getPortfolioTotalValue() {
+        return portfolioTotalValue;
+    }
+
+    public void setPortfolioTotalValue(BigDecimal portfolioTotalValue) {
+        this.portfolioTotalValue = portfolioTotalValue;
     }
 
     public LocalDateTime getPurchaseDate() {

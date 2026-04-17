@@ -26,7 +26,10 @@ public class AssetController {
                 a.getAssetId(),
                 a.getAssetSymbol(),
                 a.getAssetName(),
-                a.getCurrency() != null ? a.getCurrency().getCurrencyCode() : null
+                a.getCurrency() != null ? a.getCurrency().getCurrencyCode() : null,
+                a.getOpenPrice(),
+                a.getClosePrice(),
+                a.getStockExchange()
         )).collect(Collectors.toList());
     }
 }

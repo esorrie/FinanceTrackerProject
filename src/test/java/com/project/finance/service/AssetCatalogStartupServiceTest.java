@@ -3,14 +3,11 @@ package com.project.finance.service;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.project.finance.dto.MarketDataStockImportResponse;
-import com.project.finance.repository.AssetRepository;
-import com.project.finance.repository.CurrencyRepository;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,26 +21,16 @@ class AssetCatalogStartupServiceTest {
 
     @Mock
     private MarketDataImportService marketDataImportService;
-    @Mock
-    private AssetRepository assetRepository;
-    @Mock
-    private CurrencyRepository currencyRepository;
 
     private AssetCatalogStartupService assetCatalogStartupService;
 
     @BeforeEach
     void setUp() {
-        assetCatalogStartupService = new AssetCatalogStartupService(
-                marketDataImportService,
-                assetRepository,
-                currencyRepository
-        );
+        assetCatalogStartupService = new AssetCatalogStartupService(marketDataImportService);
     }
 
     @Test
     void importAssetCatalogAtStartupCallsAllScreenersInConfiguredOrder() {
-        when(assetRepository.count()).thenReturn(0L);
-        when(currencyRepository.count()).thenReturn(0L);
         when(marketDataImportService.importStocksFromScreener(anyString(), eq(250), eq(200), eq(true)))
                 .thenAnswer(invocation -> response((String) invocation.getArgument(0)));
 
@@ -63,8 +50,6 @@ class AssetCatalogStartupServiceTest {
 
     @Test
     void importAssetCatalogAtStartupContinuesWhenOneScreenerFails() {
-        when(assetRepository.count()).thenReturn(0L);
-        when(currencyRepository.count()).thenReturn(0L);
         when(marketDataImportService.importStocksFromScreener(anyString(), eq(250), eq(200), eq(true)))
                 .thenAnswer(invocation -> {
                     String screenerId = invocation.getArgument(0);
@@ -80,16 +65,13 @@ class AssetCatalogStartupServiceTest {
     }
 
     @Test
-    void importAssetCatalogAtStartupRunsInUpdateOnlyModeWhenAssetsAndCurrenciesAlreadyPopulated() {
-        when(assetRepository.count()).thenReturn(10L);
-        when(currencyRepository.count()).thenReturn(10L);
-        when(marketDataImportService.importStocksFromScreener(anyString(), eq(250), eq(200), eq(false)))
+    void importAssetCatalogAtStartupAlwaysUsesFullImportMode() {
+        when(marketDataImportService.importStocksFromScreener(anyString(), eq(250), eq(200), eq(true)))
                 .thenAnswer(invocation -> response((String) invocation.getArgument(0)));
 
         assetCatalogStartupService.importAssetCatalogAtStartup();
 
-        verify(marketDataImportService, times(7)).importStocksFromScreener(anyString(), eq(250), eq(200), eq(false));
-        verify(marketDataImportService, never()).importStocksFromScreener(anyString(), eq(250), eq(200), eq(true));
+        verify(marketDataImportService, times(7)).importStocksFromScreener(anyString(), eq(250), eq(200), eq(true));
     }
 
     private MarketDataStockImportResponse response(String screenerId) {

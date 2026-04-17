@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "tbl_asset")
@@ -28,6 +29,15 @@ public class Asset {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "currency_id", nullable = false)
     private Currency currency;
+
+    @Column(name = "open_price", precision = 19, scale = 4)
+    private BigDecimal openPrice;
+
+    @Column(name = "close_price", precision = 19, scale = 4)
+    private BigDecimal closePrice;
+
+    @Column(name = "stock_exchange", length = 50)
+    private String stockExchange;
 
     public Asset() {
     }
@@ -62,6 +72,30 @@ public class Asset {
 
     public void setCurrency(Currency currency) {
         this.currency = currency;
+    }
+
+    public BigDecimal getOpenPrice() {
+        return openPrice;
+    }
+
+    public void setOpenPrice(BigDecimal openPrice) {
+        this.openPrice = openPrice;
+    }
+
+    public BigDecimal getClosePrice() {
+        return closePrice;
+    }
+
+    public void setClosePrice(BigDecimal closePrice) {
+        this.closePrice = closePrice;
+    }
+
+    public String getStockExchange() {
+        return stockExchange;
+    }
+
+    public void setStockExchange(String stockExchange) {
+        this.stockExchange = stockExchange;
     }
 }
 

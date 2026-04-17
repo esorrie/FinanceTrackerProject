@@ -6,12 +6,11 @@ import com.project.finance.client.YahooFinanceClient.YahooQuote;
 import com.project.finance.dto.MarketDataImportResponse;
 import com.project.finance.dto.MarketDataStockImportResponse;
 import com.project.finance.entity.Asset;
-import com.project.finance.entity.AssetHistory;
 import com.project.finance.entity.Currency;
-import com.project.finance.repository.AssetHistoryRepository;
 import com.project.finance.repository.AssetRepository;
 import com.project.finance.repository.CurrencyRepository;
 import jakarta.transaction.Transactional;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -26,6 +25,7 @@ public class MarketDataImportService {
     private static final int SYMBOL_MAX_LENGTH = 10;
     private static final int ASSET_NAME_MAX_LENGTH = 50;
     private static final int CURRENCY_MAX_LENGTH = 3;
+    private static final int STOCK_EXCHANGE_MAX_LENGTH = 50;
     private static final int MAX_PAGE_SIZE = 250;
     private static final int MAX_ALLOWED_PAGES = 200;
     private static final int SYMBOL_SAMPLE_LIMIT = 100;
@@ -33,18 +33,15 @@ public class MarketDataImportService {
     private final YahooFinanceClient yahooFinanceClient;
     private final AssetRepository assetRepository;
     private final CurrencyRepository currencyRepository;
-    private final AssetHistoryRepository assetHistoryRepository;
 
     public MarketDataImportService(
             YahooFinanceClient yahooFinanceClient,
             AssetRepository assetRepository,
-            CurrencyRepository currencyRepository,
-            AssetHistoryRepository assetHistoryRepository
+            CurrencyRepository currencyRepository
     ) {
         this.yahooFinanceClient = yahooFinanceClient;
         this.assetRepository = assetRepository;
         this.currencyRepository = currencyRepository;
-        this.assetHistoryRepository = assetHistoryRepository;
     }
 
     @Transactional
@@ -72,7 +69,7 @@ public class MarketDataImportService {
             if (storedQuote.newCurrency()) {
                 newCurrencies++;
             }
-            if (storedQuote.historySaved()) {
+            if (storedQuote.priceUpdated()) {
                 savedQuotes++;
             }
             symbolsSaved.add(storedQuote.symbol());
@@ -115,7 +112,7 @@ public class MarketDataImportService {
         int newAssets = 0;
         int updatedAssets = 0;
         int newCurrencies = 0;
-        int savedHistoryRows = 0;
+        int updatedPriceRows = 0;
         Integer totalAvailable = null;
         Set<String> symbolsSample = new LinkedHashSet<>();
 
@@ -151,8 +148,8 @@ public class MarketDataImportService {
                 if (storedQuote.newCurrency()) {
                     newCurrencies++;
                 }
-                if (storedQuote.historySaved()) {
-                    savedHistoryRows++;
+                if (storedQuote.priceUpdated()) {
+                    updatedPriceRows++;
                 }
                 if (symbolsSample.size() < SYMBOL_SAMPLE_LIMIT) {
                     symbolsSample.add(storedQuote.symbol());
@@ -178,7 +175,7 @@ public class MarketDataImportService {
                 newAssets,
                 updatedAssets,
                 newCurrencies,
-                savedHistoryRows,
+                updatedPriceRows,
                 List.copyOf(symbolsSample)
         );
     }
@@ -203,6 +200,9 @@ public class MarketDataImportService {
         String symbol = quote.symbol().trim().toUpperCase(Locale.ROOT);
         String currencyCode = quote.currency().trim().toUpperCase(Locale.ROOT);
         String assetName = normalizeForColumn(resolveAssetName(quote), ASSET_NAME_MAX_LENGTH);
+        BigDecimal openPrice = quote.regularMarketOpen();
+        BigDecimal closePrice = resolveClosePrice(quote);
+        String stockExchange = normalizeNullableForColumn(quote.stockExchange(), STOCK_EXCHANGE_MAX_LENGTH);
 
         if (!fitsColumnLimit(symbol, SYMBOL_MAX_LENGTH) || !fitsColumnLimit(currencyCode, CURRENCY_MAX_LENGTH)) {
             return StoredQuoteResult.skipped();
@@ -233,6 +233,9 @@ public class MarketDataImportService {
             asset.setAssetSymbol(symbol);
             asset.setAssetName(assetName);
             asset.setCurrency(currency);
+            asset.setOpenPrice(openPrice);
+            asset.setClosePrice(closePrice);
+            asset.setStockExchange(stockExchange);
             asset = assetRepository.save(asset);
             newAsset = true;
         } else {
@@ -246,28 +249,26 @@ public class MarketDataImportService {
                 asset.setCurrency(currency);
                 changed = true;
             }
+            if (!equalsDecimal(asset.getOpenPrice(), openPrice)) {
+                asset.setOpenPrice(openPrice);
+                changed = true;
+            }
+            if (!equalsDecimal(asset.getClosePrice(), closePrice)) {
+                asset.setClosePrice(closePrice);
+                changed = true;
+            }
+            if (!equalsText(asset.getStockExchange(), stockExchange)) {
+                asset.setStockExchange(stockExchange);
+                changed = true;
+            }
             if (changed) {
                 asset = assetRepository.save(asset);
                 updatedAsset = true;
             }
         }
 
-        boolean historySaved = false;
-        if (quote.regularMarketPrice() != null) {
-            AssetHistory assetHistory = assetHistoryRepository
-                    .findTopByAssetAssetIdAndCurrencyCurrencyIdOrderByLastUpdateDesc(
-                            asset.getAssetId(),
-                            currency.getCurrencyId()
-                    )
-                    .orElseGet(AssetHistory::new);
-            assetHistory.setAsset(asset);
-            assetHistory.setCurrency(currency);
-            assetHistory.setPrice(quote.regularMarketPrice());
-            assetHistoryRepository.save(assetHistory);
-            historySaved = true;
-        }
-
-        return new StoredQuoteResult(true, symbol, newAsset, updatedAsset, newCurrency, historySaved);
+        boolean priceUpdated = closePrice != null;
+        return new StoredQuoteResult(true, symbol, newAsset, updatedAsset, newCurrency, priceUpdated);
     }
 
     private boolean canBeStored(YahooQuote quote, boolean requirePrice) {
@@ -287,6 +288,13 @@ public class MarketDataImportService {
         return quote.symbol().trim().toUpperCase(Locale.ROOT);
     }
 
+    private BigDecimal resolveClosePrice(YahooQuote quote) {
+        if (quote.regularMarketPrice() != null) {
+            return quote.regularMarketPrice();
+        }
+        return quote.regularMarketPreviousClose();
+    }
+
     private boolean fitsColumnLimit(String value, int maxLength) {
         return value.length() <= maxLength;
     }
@@ -298,13 +306,40 @@ public class MarketDataImportService {
         return value.substring(0, maxLength);
     }
 
+    private String normalizeNullableForColumn(String value, int maxLength) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return normalizeForColumn(value.trim(), maxLength);
+    }
+
+    private boolean equalsDecimal(BigDecimal left, BigDecimal right) {
+        if (left == null && right == null) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.compareTo(right) == 0;
+    }
+
+    private boolean equalsText(String left, String right) {
+        if (!StringUtils.hasText(left) && !StringUtils.hasText(right)) {
+            return true;
+        }
+        if (!StringUtils.hasText(left) || !StringUtils.hasText(right)) {
+            return false;
+        }
+        return left.trim().equalsIgnoreCase(right.trim());
+    }
+
     private record StoredQuoteResult(
             boolean stored,
             String symbol,
             boolean newAsset,
             boolean updatedAsset,
             boolean newCurrency,
-            boolean historySaved
+            boolean priceUpdated
     ) {
         private static StoredQuoteResult skipped() {
             return new StoredQuoteResult(false, null, false, false, false, false);
