@@ -5,7 +5,10 @@ import com.project.finance.config.YahooFinanceProperties;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.http.HttpHeaders;
@@ -28,7 +31,38 @@ public class YahooFinanceClient {
     }
 
     public List<YahooQuote> fetchQuotes(Collection<String> symbols) {
-        return fetchQuotesViaPublicYahoo(symbols);
+        List<String> normalizedSymbols = normalizeSymbols(symbols);
+        if (normalizedSymbols.isEmpty()) {
+            return List.of();
+        }
+
+        List<YahooQuote> batchQuotes = fetchQuotesViaBatchYahoo(normalizedSymbols);
+        Map<String, YahooQuote> quotesBySymbol = new LinkedHashMap<>();
+        for (YahooQuote quote : batchQuotes) {
+            String key = quoteSymbolKey(quote == null ? null : quote.symbol());
+            if (key != null) {
+                quotesBySymbol.put(key, quote);
+            }
+        }
+
+        List<String> missingSymbols = normalizedSymbols.stream()
+                .filter(symbol -> !quotesBySymbol.containsKey(symbol))
+                .toList();
+
+        if (!missingSymbols.isEmpty()) {
+            List<YahooQuote> fallbackQuotes = fetchQuotesViaPublicYahoo(missingSymbols);
+            for (YahooQuote quote : fallbackQuotes) {
+                String key = quoteSymbolKey(quote == null ? null : quote.symbol());
+                if (key != null) {
+                    quotesBySymbol.putIfAbsent(key, quote);
+                }
+            }
+        }
+
+        return normalizedSymbols.stream()
+                .map(quotesBySymbol::get)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public ScreenerPage fetchScreenerPage(String screenerId, int start, int count) {
@@ -90,11 +124,93 @@ public class YahooFinanceClient {
         }
     }
 
+    private List<YahooQuote> fetchQuotesViaBatchYahoo(List<String> symbols) {
+        String symbolsParam = String.join(",", symbols);
+
+        try {
+            JsonNode response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path(properties.getQuoteBatchPath())
+                            .queryParam("symbols", symbolsParam)
+                            .queryParamIfPresent("region", toOptionalParam(properties.getRegion()))
+                            .build())
+                    .headers(headers -> {
+                        headers.set(HttpHeaders.ACCEPT, "application/json");
+                        if (StringUtils.hasText(properties.getUserAgent())) {
+                            headers.set(HttpHeaders.USER_AGENT, properties.getUserAgent());
+                        }
+                    })
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            return mapBatchQuotes(response);
+        } catch (RestClientResponseException ex) {
+            throw new IllegalStateException(
+                    "Yahoo batch quote request failed for symbols "
+                            + symbolsParam
+                            + " with status "
+                            + ex.getStatusCode().value()
+                            + " ("
+                            + ex.getStatusText()
+                            + "). Body: "
+                            + summarizeBody(ex.getResponseBodyAsString()),
+                    ex
+            );
+        } catch (ResourceAccessException ex) {
+            throw new IllegalStateException("Could not reach Yahoo Finance endpoint. Check internet/proxy/firewall.", ex);
+        } catch (RestClientException ex) {
+            throw new IllegalStateException(
+                    "Failed to fetch Yahoo batch quotes for "
+                            + symbolsParam
+                            + ": "
+                            + ex.getMessage(),
+                    ex
+            );
+        }
+    }
+
     private List<YahooQuote> fetchQuotesViaPublicYahoo(Collection<String> symbols) {
         return symbols.stream()
                 .map(this::fetchSingleSymbolViaPublicYahoo)
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    private List<YahooQuote> mapBatchQuotes(JsonNode response) {
+        JsonNode resultsNode = response == null
+                ? null
+                : response.path("quoteResponse").path("result");
+        if (resultsNode == null || !resultsNode.isArray() || resultsNode.isEmpty()) {
+            return List.of();
+        }
+
+        List<YahooQuote> quotes = new ArrayList<>();
+        for (JsonNode quoteNode : resultsNode) {
+            if (quoteNode == null || quoteNode.isNull()) {
+                continue;
+            }
+
+            String symbol = readTextField(quoteNode, "symbol");
+            if (!StringUtils.hasText(symbol)) {
+                continue;
+            }
+
+            quotes.add(new YahooQuote(
+                    symbol,
+                    readTextField(quoteNode, "shortName"),
+                    readTextField(quoteNode, "longName"),
+                    readTextField(quoteNode, "currency"),
+                    readDecimalField(quoteNode, "regularMarketPrice"),
+                    readDecimalField(quoteNode, "regularMarketOpen"),
+                    readDecimalField(quoteNode, "regularMarketPreviousClose"),
+                    resolveStockExchange(
+                            readTextField(quoteNode, "fullExchangeName"),
+                            readTextField(quoteNode, "exchangeName"),
+                            readTextField(quoteNode, "exchange")
+                    )
+            ));
+        }
+
+        return List.copyOf(quotes);
     }
 
     private YahooQuote fetchSingleSymbolViaPublicYahoo(String symbol) {
@@ -297,6 +413,25 @@ public class YahooFinanceClient {
             return formatted;
         }
         return readTextValue(node.path("raw"));
+    }
+
+    private List<String> normalizeSymbols(Collection<String> symbols) {
+        if (symbols == null) {
+            return List.of();
+        }
+
+        return symbols.stream()
+                .filter(StringUtils::hasText)
+                .map(symbol -> symbol.trim().toUpperCase(Locale.ROOT))
+                .distinct()
+                .toList();
+    }
+
+    private String quoteSymbolKey(String symbol) {
+        if (!StringUtils.hasText(symbol)) {
+            return null;
+        }
+        return symbol.trim().toUpperCase(Locale.ROOT);
     }
 
     private Optional<String> toOptionalParam(String value) {

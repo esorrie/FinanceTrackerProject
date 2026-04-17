@@ -7,6 +7,7 @@ public class YahooFinanceProperties {
 
     private String baseUrl = "https://query2.finance.yahoo.com";
     private String quotePath = "/v8/finance/chart";
+    private String quoteBatchPath = "/v7/finance/quote";
     private String screenerPath = "/v1/finance/screener/predefined/saved";
     private String region = "US";
     private String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -33,6 +34,14 @@ public class YahooFinanceProperties {
 
     public void setScreenerPath(String screenerPath) {
         this.screenerPath = screenerPath;
+    }
+
+    public String getQuoteBatchPath() {
+        return quoteBatchPath;
+    }
+
+    public void setQuoteBatchPath(String quoteBatchPath) {
+        this.quoteBatchPath = quoteBatchPath;
     }
 
     public String getRegion() {
