@@ -12,8 +12,9 @@ const App = () => {
         <NavBar />
         <div className="main">
           <Routes>
-            <Route exact path="/" element={<Dashboard />} />
-            <Route path="/portfolio" element={<Portfolio />} />
+            <Route exact path="/" element={<Portfolio />} />
+            {/* <Route exact path="/" element={<Dashboard />} /> */}
+            {/* <Route path="/stocks" element={<Stock />} />  */}
           </Routes>
         </div>
       </div>
