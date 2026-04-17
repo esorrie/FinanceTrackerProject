@@ -62,7 +62,7 @@ public class MarketDataImportService {
         List<String> symbolsSaved = new ArrayList<>();
 
         for (YahooQuote quote : quotes) {
-            StoredQuoteResult storedQuote = storeQuote(quote, true);
+            StoredQuoteResult storedQuote = storeQuote(quote, true, true);
             if (!storedQuote.stored()) {
                 continue;
             }
@@ -89,6 +89,15 @@ public class MarketDataImportService {
     }
 
     public MarketDataStockImportResponse importStocksFromScreener(String screenerId, int pageSize, int maxPages) {
+        return importStocksFromScreener(screenerId, pageSize, maxPages, true);
+    }
+
+    public MarketDataStockImportResponse importStocksFromScreener(
+            String screenerId,
+            int pageSize,
+            int maxPages,
+            boolean allowCreates
+    ) {
         if (!StringUtils.hasText(screenerId)) {
             throw new IllegalArgumentException("screenerId is required.");
         }
@@ -127,7 +136,7 @@ public class MarketDataImportService {
             quotesReturned += pageQuotes.size();
 
             for (YahooQuote quote : pageQuotes) {
-                StoredQuoteResult storedQuote = storeQuote(quote, false);
+                StoredQuoteResult storedQuote = storeQuote(quote, false, allowCreates);
                 if (!storedQuote.stored()) {
                     continue;
                 }
@@ -186,7 +195,7 @@ public class MarketDataImportService {
                 .toList();
     }
 
-    private StoredQuoteResult storeQuote(YahooQuote quote, boolean requirePrice) {
+    private StoredQuoteResult storeQuote(YahooQuote quote, boolean requirePrice, boolean allowCreates) {
         if (!canBeStored(quote, requirePrice)) {
             return StoredQuoteResult.skipped();
         }
@@ -202,6 +211,9 @@ public class MarketDataImportService {
         Currency currency = currencyRepository.findByCurrencyCodeIgnoreCase(currencyCode).orElse(null);
         boolean newCurrency = false;
         if (currency == null) {
+            if (!allowCreates) {
+                return StoredQuoteResult.skipped();
+            }
             currency = new Currency();
             currency.setCurrencyCode(currencyCode);
             currency.setSymbol(currencyCode);
@@ -214,6 +226,9 @@ public class MarketDataImportService {
         boolean newAsset = false;
         boolean updatedAsset = false;
         if (asset == null) {
+            if (!allowCreates) {
+                return StoredQuoteResult.skipped();
+            }
             asset = new Asset();
             asset.setAssetSymbol(symbol);
             asset.setAssetName(assetName);
@@ -239,7 +254,12 @@ public class MarketDataImportService {
 
         boolean historySaved = false;
         if (quote.regularMarketPrice() != null) {
-            AssetHistory assetHistory = new AssetHistory();
+            AssetHistory assetHistory = assetHistoryRepository
+                    .findTopByAssetAssetIdAndCurrencyCurrencyIdOrderByLastUpdateDesc(
+                            asset.getAssetId(),
+                            currency.getCurrencyId()
+                    )
+                    .orElseGet(AssetHistory::new);
             assetHistory.setAsset(asset);
             assetHistory.setCurrency(currency);
             assetHistory.setPrice(quote.regularMarketPrice());

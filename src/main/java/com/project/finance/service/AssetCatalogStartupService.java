@@ -48,15 +48,18 @@ public class AssetCatalogStartupService {
     public void importAssetCatalogAtStartup() {
         long assetCount = assetRepository.count();
         long currencyCount = currencyRepository.count();
-        if (assetCount >= MIN_EXISTING_ROWS_TO_SKIP_IMPORT && currencyCount >= MIN_EXISTING_ROWS_TO_SKIP_IMPORT) {
-            logger.info(
-                    "Startup stock import skipped because tbl_asset={} and tbl_currency={} (threshold={}).",
-                    assetCount,
-                    currencyCount,
-                    MIN_EXISTING_ROWS_TO_SKIP_IMPORT
-            );
-            return;
-        }
+        boolean updateOnlyMode = assetCount >= MIN_EXISTING_ROWS_TO_SKIP_IMPORT
+                && currencyCount >= MIN_EXISTING_ROWS_TO_SKIP_IMPORT;
+        boolean allowCreates = !updateOnlyMode;
+
+        logger.info(
+                "Startup stock import mode={} (allowCreates={}) with tbl_asset={}, tbl_currency={}, threshold={}.",
+                updateOnlyMode ? "update-only" : "full-import",
+                allowCreates,
+                assetCount,
+                currencyCount,
+                MIN_EXISTING_ROWS_TO_SKIP_IMPORT
+        );
 
         long startedAt = System.currentTimeMillis();
         int successfulScreeners = 0;
@@ -71,7 +74,8 @@ public class AssetCatalogStartupService {
                 MarketDataStockImportResponse response = marketDataImportService.importStocksFromScreener(
                         screenerId,
                         PAGE_SIZE,
-                        MAX_PAGES
+                        MAX_PAGES,
+                        allowCreates
                 );
                 successfulScreeners++;
                 totalQuotesReturned += response.quotesReturned();
@@ -94,7 +98,9 @@ public class AssetCatalogStartupService {
         }
 
         logger.info(
-                "Startup stock import summary: successfulScreeners={}/{}, quotesReturned={}, assetsImported={}, newAssets={}, updatedAssets={}, failedScreeners={}, durationMs={}",
+                "Startup stock import summary: mode={}, allowCreates={}, successfulScreeners={}/{}, quotesReturned={}, assetsImported={}, newAssets={}, updatedAssets={}, failedScreeners={}, durationMs={}",
+                updateOnlyMode ? "update-only" : "full-import",
+                allowCreates,
                 successfulScreeners,
                 STARTUP_SCREENER_IDS.size(),
                 totalQuotesReturned,
