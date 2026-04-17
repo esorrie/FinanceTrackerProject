@@ -340,16 +340,15 @@ public class HoldingService {
             return BigDecimal.ONE;
         }
 
-        String pairSymbol = sourceCurrencyCode + USD_CURRENCY_CODE + "=X";
-        List<YahooQuote> quotes = yahooFinanceClient.fetchQuotes(List.of(pairSymbol));
-        BigDecimal latestRate = quotes.stream()
-                .filter(quote -> quote != null
-                        && StringUtils.hasText(quote.symbol())
-                        && pairSymbol.equalsIgnoreCase(quote.symbol())
-                        && isValidRate(quote.regularMarketPrice()))
-                .map(YahooQuote::regularMarketPrice)
-                .findFirst()
-                .orElse(null);
+        String directPairSymbol = sourceCurrencyCode + USD_CURRENCY_CODE + "=X";
+        BigDecimal latestRate = fetchFxPairRate(directPairSymbol);
+        if (!isValidRate(latestRate)) {
+            String inversePairSymbol = USD_CURRENCY_CODE + sourceCurrencyCode + "=X";
+            BigDecimal inverseRate = fetchFxPairRate(inversePairSymbol);
+            if (isValidRate(inverseRate)) {
+                latestRate = BigDecimal.ONE.divide(inverseRate, RATE_SCALE, RoundingMode.HALF_UP);
+            }
+        }
 
         if (!isValidRate(latestRate)) {
             return null;
@@ -370,6 +369,22 @@ public class HoldingService {
         exchangeRate.setRate(latestRate);
         exchangeRateRepository.save(exchangeRate);
         return latestRate;
+    }
+
+    private BigDecimal fetchFxPairRate(String pairSymbol) {
+        List<YahooQuote> quotes = yahooFinanceClient.fetchQuotes(List.of(pairSymbol));
+        if (quotes == null || quotes.isEmpty()) {
+            return null;
+        }
+
+        return quotes.stream()
+                .filter(quote -> quote != null
+                        && StringUtils.hasText(quote.symbol())
+                        && pairSymbol.equalsIgnoreCase(quote.symbol())
+                        && isValidRate(quote.regularMarketPrice()))
+                .map(YahooQuote::regularMarketPrice)
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean isValidRate(BigDecimal rate) {

@@ -1,6 +1,7 @@
 package com.project.finance.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,6 +47,7 @@ class ExchangeRateStartupServiceTest {
         Currency eur = currency(2, "EUR");
 
         when(currencyRepository.findByCurrencyCodeIgnoreCase("USD")).thenReturn(Optional.of(usd));
+        when(currencyRepository.findByCurrencyCodeIgnoreCase("EUR")).thenReturn(Optional.of(eur));
         when(currencyRepository.findAll()).thenReturn(List.of(usd, eur));
         when(exchangeRateRepository
                 .findTopByStartCurrencyCurrencyIdAndEndCurrencyCurrencyIdOrderByLastUpdatedDesc(1, 1))
@@ -53,15 +55,23 @@ class ExchangeRateStartupServiceTest {
         when(exchangeRateRepository
                 .findTopByStartCurrencyCurrencyIdAndEndCurrencyCurrencyIdOrderByLastUpdatedDesc(2, 1))
                 .thenReturn(Optional.empty());
-        when(yahooFinanceClient.fetchQuotes(List.of("EURUSD=X"))).thenReturn(List.of(
-                new YahooFinanceClient.YahooQuote(
-                        "EURUSD=X",
-                        "EUR/USD",
-                        "EUR/USD",
-                        "USD",
-                        new BigDecimal("1.1000")
-                )
-        ));
+        when(yahooFinanceClient.fetchQuotes(anyList())).thenAnswer(invocation -> {
+            Object argument = invocation.getArgument(0);
+            if (argument instanceof List<?> symbols
+                    && symbols.size() == 1
+                    && "EURUSD=X".equalsIgnoreCase(String.valueOf(symbols.get(0)))) {
+                return List.of(
+                        new YahooFinanceClient.YahooQuote(
+                                "EURUSD=X",
+                                "EUR/USD",
+                                "EUR/USD",
+                                "USD",
+                                new BigDecimal("1.1000")
+                        )
+                );
+            }
+            return List.of();
+        });
         when(exchangeRateRepository.save(any(ExchangeRate.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         exchangeRateStartupService.syncAllCurrenciesToUsd();
