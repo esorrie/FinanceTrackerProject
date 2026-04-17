@@ -35,3 +35,5 @@ build/
 node_modules/
 finance-api-checks.rest
 .env
+src/main/resources/static/frontend/src/Components/Images/SpendX logo White text.png
+src/main/resources/static/frontend/src/Components/Images/SpendX logo.png
