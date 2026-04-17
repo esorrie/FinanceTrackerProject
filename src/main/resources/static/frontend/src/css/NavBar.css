@@ -21,11 +21,11 @@
     align-self: center;
 }
 
-.navBarTitle a {
+/* .navBarTitle a {
     color: rgb(34, 34, 34);
     text-decoration: none;
     font-size: 3rem;
-}
+} */
 
 .navBarContent {
     display: flex;
@@ -38,7 +38,7 @@
 .navBarContent a {
     text-decoration: none;
     font-size: 1.3rem;
-    color: rgb(34, 34, 34);
+    color: rgb(255, 255, 255);
 
 }
 
@@ -48,7 +48,6 @@
     align-items: center;
 }
 
-/* Search bar: sleek, modern styling */
 .navBarSearch {
     display: flex;
     align-items: center;
@@ -79,8 +78,79 @@
     width: 300px;
 }
 
+.navDropdownToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px;
+    border-radius: 8px;
+    transition: background 0.18s ease, transform 0.18s ease;
+    text-decoration: none;
+}
+
+.navDropdownChevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    margin-left: 6px;
+    background: rgba(111, 117, 128, 0.06);
+    color: #ffffff;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1;
+    transition: transform 220ms cubic-bezier(.2,.9,.2,1), background 140ms ease, box-shadow 140ms ease;
+}
+
+.navDropdownChevron.open {
+    transform: rotate(180deg) translateY(1px);
+}
+
+.navDropdownMenu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    margin-top: -40.11px;
+    min-width: 180px;
+    background-color: rgb(34, 34, 34);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(2,6,23,0.45);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transform-origin: top left;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 180ms cubic-bezier(.2,.9,.2,1), transform 200ms cubic-bezier(.2,.9,.2,1), visibility 200ms;
+    z-index: 1000;
+}
+
+.navDropdownMenu.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.navDropdownItem {
+    display: block;
+    padding: 10px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: white;
+    font-weight: 600;
+    transition: background 130ms ease, transform 130ms ease;
+}
+.navDropdownItem:hover {
+    background: rgba(111, 117, 128, 0.06);
+}
+
 .navBarSearch:focus-within {
-    box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.65);
     background: rgba(255,255,255,0.09);
 }
 
