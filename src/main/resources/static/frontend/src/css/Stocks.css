@@ -14,3 +14,17 @@
     border-radius: 0.5rem;
 }
 
+.stocksTableHeader {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 10px;
+    justify-content: space-between;
+}
+
+.stocksTableColumnTitles {
+    font-size: 1.5em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 10px;
+}
+

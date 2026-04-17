@@ -30,26 +30,24 @@ const Stocks = () => {
             <div className="stocksMainContainer">
                 <div className="stocksListContainer">
                     {!loading && !error && (
-                        <table className="stocksTable">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Symbol</th>
-                                    <th>Name</th>
-                                    <th>Currency</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                        <div className="stocksTable">
+                            <div className="stocksTableHeader">
+                                <div className="stocksTableColumnTitles">ID</div>
+                                <div className="stocksTableColumnTitles">Symbol</div>
+                                <div className="stocksTableColumnTitles">Name</div>
+                                <div className="stocksTableColumnTitles">Currency</div>
+                            </div>
+                            <div>
                                 {assets.map(a => (
-                                    <tr key={a.assetId}>
-                                        <td>{a.assetId}</td>
-                                        <td>{a.assetSymbol}</td>
-                                        <td>{a.assetName}</td>
-                                        <td>{a.currencyCode}</td>
-                                    </tr>
+                                    <div key={a.assetId}>
+                                        <div>{a.assetId}</div>
+                                        <div>{a.assetSymbol}</div>
+                                        <div>{a.assetName}</div>
+                                        <div>{a.currencyCode}</div>
+                                    </div>
                                 ))}
-                            </tbody>
-                        </table>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
