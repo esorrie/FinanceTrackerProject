@@ -1,7 +1,9 @@
 html, body, #root {
+
     font-family: 'Roboto', sans-serif;
     height: 95vh;
     width: 100vw;
     background-color: rgb(41, 41, 41);
-    margin:0;
+     cursor: default !important;
+    
 }
