@@ -3,7 +3,9 @@ import "../css/Portfolio.css";
 
 const Portfolio = () => {
 
+    const portfolioId = 1;
 
+    
 
     return (
             <>

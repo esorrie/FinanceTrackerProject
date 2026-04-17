@@ -91,6 +91,7 @@ const Stocks = () => {
                 <div className="stocksListContainer">
                         <div className="stocksTable">
                             <div className="stocksTableHeader">
+                                <div className="stocksTableColumnButton"></div>
                                 <div className="stocksTableColumnName">Name</div>
                                 <div className="stocksTableColumnSymbol">Symbol</div>
                                 <div className="stocksTableColumnPrice">Price</div>
@@ -101,7 +102,7 @@ const Stocks = () => {
                                 {assets.map(a => (
                                     <>
                                         <div className="assetInfoContainer" key={a.assetId}>
-                                            <button
+                                            <button className="assetButton"
                                             onClick={() => addToPortfolio(a.assetId, a.assetSymbol)}
                                             disabled={addingId === a.assetId}
                                             >

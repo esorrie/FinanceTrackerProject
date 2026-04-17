@@ -1,5 +1,4 @@
 .stocksMainContainer {
-    /* display: flex; */
     margin-right: 10%;
     margin-left: 10%;
     color: white;
@@ -18,50 +17,60 @@
     display: flex;
     flex-direction: row;
     margin-bottom: 10px;
-    justify-content: space-between;
+}
+
+/* keep each header column sized to its content */
+.stocksTableHeader > div {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.stocksTableColumnButton {
+    font-size: 1.5em;
+    font-weight: bold;
+    padding-left: 15px;
+    padding-right: 15px;
+    width: 24px;
 }
 
 .stocksTableColumnName {
     font-size: 1.5em;
     font-weight: bold;
-    border-left : 3px solid rgba(255, 255, 255, 0.3);
     padding-left: 10px;
 }
 .stocksTableColumnSymbol {
     font-size: 1.5em;
     font-weight: bold;
     border-left : 3px solid rgba(255, 255, 255, 0.3);
-    padding-left: 90px;
-    
 }
 .stocksTableColumnPrice {
     font-size: 1.5em;
     font-weight: bold;
     border-left : 3px solid rgba(255, 255, 255, 0.3);
-    padding-left: 100px;
 }
 .stocksTableColumnChange {
     font-size: 1.5em;
     font-weight: bold;
     border-left : 3px solid rgba(255, 255, 255, 0.3);
-    padding-left: 100px;
 }
 
 .stocksTableColumnExchange {
     font-size: 1.5em;
     font-weight: bold;
     border-left : 3px solid rgba(255, 255, 255, 0.3);
-    padding-left: 10px;
 }
 
 .assetInfoContainer {
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
     padding: 10px 15px;
     border-top : 3px solid rgba(255, 255, 255, 0.3);
 }
 
+.assetButton {
+    margin-right: 15px;
+
+}
 .assetName {
     font-size: 1.25em;
     font-weight: bold;
