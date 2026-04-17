@@ -16,15 +16,10 @@
     width: 25%;
 }
 
-.portfolioHeader {
-    font-size: 1.5em;
-    font-weight: bold;
-}
-
 .portfolioValue {
     margin-top: 5px;
-    font-size: 1em;
-    font-weight: 500;
+    font-size: 1.5em;
+    font-weight: bold;
 }
 
 .portfolioContentContainer {
