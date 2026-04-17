@@ -1,0 +1,30 @@
+.stocksMainContainer {
+    /* display: flex; */
+    margin-right: 10%;
+    margin-left: 10%;
+    color: white;
+}
+
+.stocksListContainer {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 15px;
+    margin: 20px 15px 20px 30px;
+    box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
+    border-radius: 0.5rem;
+}
+
+.stocksTableHeader {
+    display: flex;
+    flex-direction: row;
+    margin-bottom: 10px;
+    justify-content: space-between;
+}
+
+.stocksTableColumnTitles {
+    font-size: 1.5em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 10px;
+}
+
