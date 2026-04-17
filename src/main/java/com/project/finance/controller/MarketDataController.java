@@ -1,6 +1,7 @@
 package com.project.finance.controller;
 
 import com.project.finance.dto.MarketDataImportResponse;
+import com.project.finance.dto.MarketDataStockImportResponse;
 import com.project.finance.service.MarketDataImportService;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,21 @@ public class MarketDataController {
     public MarketDataImportResponse importQuotes(@RequestParam List<String> symbols) {
         try {
             return marketDataImportService.importQuotes(symbols);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/import/stocks")
+    public MarketDataStockImportResponse importStocksFromScreener(
+            @RequestParam(defaultValue = "all_us_stocks") String screenerId,
+            @RequestParam(defaultValue = "250") int pageSize,
+            @RequestParam(defaultValue = "10") int maxPages
+    ) {
+        try {
+            return marketDataImportService.importStocksFromScreener(screenerId, pageSize, maxPages);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
