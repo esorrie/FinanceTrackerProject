@@ -89,15 +89,15 @@ const Stocks = () => {
         <>
             <div className="stocksMainContainer">
                 <div className="stocksListContainer">
+                    {!loading && !error && (
                         <div className="stocksTable">
                             <div className="stocksTableHeader">
-                                <div className="stocksTableColumnTitles">Name</div>
+                                <div className="stocksTableColumnTitles">ID</div>
                                 <div className="stocksTableColumnTitles">Symbol</div>
-                                <div className="stocksTableColumnTitles"> Price</div>
-                                <div className="stocksTableColumnTitles"> Change </div>
-                                <div className="stocksTableColumnTitles"> Exchange </div>
+                                <div className="stocksTableColumnTitles">Name</div>
+                                <div className="stocksTableColumnTitles">Currency</div>
                             </div>
-                            <div>
+                            {/* <div>
                                 {assets.map(a => (
                                     <>
                                         <div className="assetInfoContainer" key={a.assetId}>
@@ -115,8 +115,11 @@ const Stocks = () => {
                                         </button>
                                     </>
                                 ))}
-                            </div>
+                            </div> */}
+                            <div> Asset 1 </div>
+                        
                         </div>
+                    )}
                 </div>
             </div>
         </>

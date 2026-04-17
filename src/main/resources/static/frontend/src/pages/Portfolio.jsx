@@ -4,6 +4,7 @@ import "../css/Portfolio.css";
 const Portfolio = () => {
 
 
+
     return (
             <>
                 <div className="portfolioMainContainer">
@@ -29,16 +30,16 @@ const Portfolio = () => {
                             <div className="portfolioAllocationListContainer">
                                 <div className="portfolioAllocationList"> Allocation 1</div>
 
-                            </div>
                         </div>
                     </div>
-                        
-                    <div className="portfolioDataContainer">
-                        <div className="portfolioData">This is where the portfolio details will be displayed.</div>
-                    </div>
                 </div>
-            </>
-        )
-    }
+                    
+                <div className="portfolioDataContainer">
+                    <div className="portfolioData">This is where the portfolio details will be displayed.</div>
+                </div>
+            </div>
+        </>
+    )
+}
 
     export default Portfolio;
