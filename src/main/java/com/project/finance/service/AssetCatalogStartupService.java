@@ -73,8 +73,11 @@ public class AssetCatalogStartupService {
             }
         }
 
+        MarketDataImportService.AssetMarketRefreshSummary refreshSummary =
+                marketDataImportService.refreshAllTrackedAssetsMarketData();
+
         logger.info(
-                "Startup stock import summary: allowCreates={}, successfulScreeners={}/{}, quotesReturned={}, assetsImported={}, newAssets={}, updatedAssets={}, failedScreeners={}, durationMs={}",
+                "Startup stock import summary: allowCreates={}, successfulScreeners={}/{}, quotesReturned={}, assetsImported={}, newAssets={}, updatedAssets={}, failedScreeners={}, refreshTotalAssets={}, refreshBatches={}, refreshQuotesReturned={}, refreshAssetsMatched={}, refreshAssetsUpdated={}, refreshAssetsMissingQuote={}, durationMs={}",
                 allowCreates,
                 successfulScreeners,
                 STARTUP_SCREENER_IDS.size(),
@@ -83,6 +86,12 @@ public class AssetCatalogStartupService {
                 totalNewAssets,
                 totalUpdatedAssets,
                 failedScreeners,
+                refreshSummary.totalAssets(),
+                refreshSummary.batchesProcessed(),
+                refreshSummary.quotesReturned(),
+                refreshSummary.assetsMatched(),
+                refreshSummary.assetsUpdated(),
+                refreshSummary.assetsMissingQuote(),
                 System.currentTimeMillis() - startedAt
         );
     }

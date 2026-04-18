@@ -3,6 +3,9 @@ package com.project.finance.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.project.finance.config.YahooFinanceProperties;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -11,6 +14,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -36,7 +40,14 @@ public class YahooFinanceClient {
             return List.of();
         }
 
-        List<YahooQuote> batchQuotes = fetchQuotesViaBatchYahoo(normalizedSymbols);
+        List<YahooQuote> batchQuotes = List.of();
+        IllegalStateException batchFailure = null;
+        try {
+            batchQuotes = fetchQuotesViaBatchYahoo(normalizedSymbols);
+        } catch (IllegalStateException ex) {
+            batchFailure = ex;
+        }
+
         Map<String, YahooQuote> quotesBySymbol = new LinkedHashMap<>();
         for (YahooQuote quote : batchQuotes) {
             String key = quoteSymbolKey(quote == null ? null : quote.symbol());
@@ -50,13 +61,31 @@ public class YahooFinanceClient {
                 .toList();
 
         if (!missingSymbols.isEmpty()) {
-            List<YahooQuote> fallbackQuotes = fetchQuotesViaPublicYahoo(missingSymbols);
+            List<YahooQuote> fallbackQuotes;
+            try {
+                fallbackQuotes = fetchQuotesViaPublicYahoo(missingSymbols);
+            } catch (IllegalStateException fallbackFailure) {
+                if (batchFailure != null) {
+                    throw new IllegalStateException(
+                            "Failed to fetch quotes using both Yahoo endpoints. Batch failure: "
+                                    + batchFailure.getMessage()
+                                    + "; Fallback failure: "
+                                    + fallbackFailure.getMessage(),
+                            fallbackFailure
+                    );
+                }
+                throw fallbackFailure;
+            }
             for (YahooQuote quote : fallbackQuotes) {
                 String key = quoteSymbolKey(quote == null ? null : quote.symbol());
                 if (key != null) {
                     quotesBySymbol.putIfAbsent(key, quote);
                 }
             }
+        }
+
+        if (quotesBySymbol.isEmpty() && batchFailure != null) {
+            throw batchFailure;
         }
 
         return normalizedSymbols.stream()
@@ -124,6 +153,77 @@ public class YahooFinanceClient {
         }
     }
 
+    public List<HistoricalPricePoint> fetchHistoricalClosePrices(
+            String symbol,
+            LocalDate fromDate,
+            LocalDate toDate,
+            String interval
+    ) {
+        if (!StringUtils.hasText(symbol)) {
+            throw new IllegalArgumentException("symbol is required.");
+        }
+        if (fromDate == null) {
+            throw new IllegalArgumentException("fromDate is required.");
+        }
+        if (toDate == null) {
+            throw new IllegalArgumentException("toDate is required.");
+        }
+        if (toDate.isBefore(fromDate)) {
+            throw new IllegalArgumentException("toDate cannot be before fromDate.");
+        }
+
+        String normalizedSymbol = symbol.trim().toUpperCase(Locale.ROOT);
+        String normalizedInterval = normalizeHistoryInterval(interval);
+
+        long period1 = fromDate.atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+        long period2 = toDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+
+        try {
+            JsonNode response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path(properties.getQuotePath())
+                            .path("/" + normalizedSymbol)
+                            .queryParam("interval", normalizedInterval)
+                            .queryParam("period1", period1)
+                            .queryParam("period2", period2)
+                            .queryParam("includePrePost", "false")
+                            .queryParam("events", "div,splits")
+                            .queryParamIfPresent("region", toOptionalParam(properties.getRegion()))
+                            .build())
+                    .headers(headers -> {
+                        headers.set(HttpHeaders.ACCEPT, "application/json");
+                        if (StringUtils.hasText(properties.getUserAgent())) {
+                            headers.set(HttpHeaders.USER_AGENT, properties.getUserAgent());
+                        }
+                    })
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            return mapHistoricalClosePrices(response);
+        } catch (RestClientResponseException ex) {
+            throw new IllegalStateException(
+                    "Yahoo historical request failed for symbol "
+                            + normalizedSymbol
+                            + " with status "
+                            + ex.getStatusCode().value()
+                            + " ("
+                            + ex.getStatusText()
+                            + "). Body: "
+                            + summarizeBody(ex.getResponseBodyAsString()),
+                    ex
+            );
+        } catch (ResourceAccessException ex) {
+            throw new IllegalStateException("Could not reach Yahoo Finance endpoint. Check internet/proxy/firewall.", ex);
+        } catch (RestClientException ex) {
+            throw new IllegalStateException(
+                    "Failed to fetch Yahoo historical prices for "
+                            + normalizedSymbol
+                            + ": "
+                            + ex.getMessage(),
+                    ex
+            );
+        }
+    }
+
     private List<YahooQuote> fetchQuotesViaBatchYahoo(List<String> symbols) {
         String symbolsParam = String.join(",", symbols);
 
@@ -169,10 +269,95 @@ public class YahooFinanceClient {
     }
 
     private List<YahooQuote> fetchQuotesViaPublicYahoo(Collection<String> symbols) {
-        return symbols.stream()
-                .map(this::fetchSingleSymbolViaPublicYahoo)
-                .filter(Objects::nonNull)
-                .toList();
+        List<YahooQuote> quotes = new ArrayList<>();
+        IllegalStateException firstFailure = null;
+
+        for (String symbol : symbols) {
+            try {
+                YahooQuote quote = fetchSingleSymbolViaPublicYahoo(symbol);
+                if (quote != null) {
+                    quotes.add(quote);
+                }
+            } catch (IllegalStateException ex) {
+                if (firstFailure == null) {
+                    firstFailure = ex;
+                }
+            }
+        }
+
+        if (quotes.isEmpty() && firstFailure != null) {
+            throw firstFailure;
+        }
+
+        return List.copyOf(quotes);
+    }
+
+    private List<HistoricalPricePoint> mapHistoricalClosePrices(JsonNode response) {
+        JsonNode resultNode = response == null
+                ? null
+                : response.path("chart").path("result");
+        if (resultNode == null || !resultNode.isArray() || resultNode.isEmpty()) {
+            return List.of();
+        }
+
+        JsonNode firstResult = resultNode.get(0);
+        if (firstResult == null || firstResult.isNull()) {
+            return List.of();
+        }
+
+        JsonNode timestampsNode = firstResult.path("timestamp");
+        if (!timestampsNode.isArray() || timestampsNode.isEmpty()) {
+            return List.of();
+        }
+
+        JsonNode closeNode = firstResult
+                .path("indicators")
+                .path("quote")
+                .path(0)
+                .path("close");
+        if (!closeNode.isArray() || closeNode.isEmpty()) {
+            closeNode = firstResult
+                    .path("indicators")
+                    .path("adjclose")
+                    .path(0)
+                    .path("adjclose");
+        }
+        if (!closeNode.isArray() || closeNode.isEmpty()) {
+            return List.of();
+        }
+
+        int size = Math.min(timestampsNode.size(), closeNode.size());
+        Map<LocalDate, BigDecimal> latestCloseByDate = new TreeMap<>();
+        for (int i = 0; i < size; i++) {
+            JsonNode timestampNode = timestampsNode.get(i);
+            JsonNode closeValueNode = closeNode.get(i);
+            if (timestampNode == null || closeValueNode == null || timestampNode.isNull() || closeValueNode.isNull()) {
+                continue;
+            }
+            if (!timestampNode.isIntegralNumber()) {
+                continue;
+            }
+
+            BigDecimal close = readDecimalValue(closeValueNode);
+            if (close == null || close.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            LocalDate date = Instant.ofEpochSecond(timestampNode.asLong())
+                    .atZone(ZoneOffset.UTC)
+                    .toLocalDate();
+            latestCloseByDate.put(date, close);
+        }
+
+        if (latestCloseByDate.isEmpty()) {
+            return List.of();
+        }
+
+        List<HistoricalPricePoint> points = new ArrayList<>(latestCloseByDate.size());
+        for (Map.Entry<LocalDate, BigDecimal> entry : latestCloseByDate.entrySet()) {
+            points.add(new HistoricalPricePoint(entry.getKey(), entry.getValue()));
+        }
+        return List.copyOf(points);
     }
 
     private List<YahooQuote> mapBatchQuotes(JsonNode response) {
@@ -467,6 +652,20 @@ public class YahooFinanceClient {
         return compact.substring(0, maxLength) + "...";
     }
 
+    private String normalizeHistoryInterval(String interval) {
+        if (!StringUtils.hasText(interval)) {
+            return "1d";
+        }
+
+        String normalized = interval.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "1d", "1day", "day", "daily" -> "1d";
+            case "1wk", "1w", "week", "weekly" -> "1wk";
+            case "1mo", "1m", "month", "monthly" -> "1mo";
+            default -> throw new IllegalArgumentException("Unsupported interval: " + interval);
+        };
+    }
+
     public record YahooQuote(
             String symbol,
             String shortName,
@@ -482,6 +681,12 @@ public class YahooFinanceClient {
     public record ScreenerPage(
             List<YahooQuote> quotes,
             Integer totalAvailable
+    ) {
+    }
+
+    public record HistoricalPricePoint(
+            LocalDate date,
+            BigDecimal closePrice
     ) {
     }
 

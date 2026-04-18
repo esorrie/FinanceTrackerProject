@@ -2,7 +2,10 @@ package com.project.finance.controller;
 
 import com.project.finance.dto.HoldingCreateRequest;
 import com.project.finance.dto.HoldingCreateResponse;
+import com.project.finance.dto.HoldingHistoryResponse;
 import com.project.finance.dto.HoldingsInCurrencyResponse;
+import com.project.finance.dto.PortfolioHistoryResponse;
+import com.project.finance.dto.PortfolioPerformanceResponse;
 import com.project.finance.dto.UserCurrencyUpdateResponse;
 import com.project.finance.service.HoldingService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -57,6 +60,51 @@ public class HoldingController {
     ) {
         try {
             return holdingService.updateUserCurrency(username, currency);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
+        }
+    }
+
+    @GetMapping("/performance")
+    public PortfolioPerformanceResponse getPortfolioPerformance(
+            @RequestParam String username,
+            @RequestParam(required = false) String currency
+    ) {
+        try {
+            return holdingService.getPortfolioPerformance(username, currency);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
+        }
+    }
+
+    @GetMapping("/history/asset")
+    public HoldingHistoryResponse getHoldingHistory(
+            @RequestParam String username,
+            @RequestParam String symbol,
+            @RequestParam(required = false) String currency,
+            @RequestParam(required = false) String interval
+    ) {
+        try {
+            return holdingService.getHoldingHistory(username, symbol, currency, interval);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
+        }
+    }
+
+    @GetMapping("/history/portfolio")
+    public PortfolioHistoryResponse getPortfolioHistory(
+            @RequestParam String username,
+            @RequestParam(required = false) String currency,
+            @RequestParam(required = false) String interval
+    ) {
+        try {
+            return holdingService.getPortfolioHistory(username, currency, interval);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {

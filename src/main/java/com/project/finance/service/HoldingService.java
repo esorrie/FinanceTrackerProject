@@ -1,11 +1,18 @@
 package com.project.finance.service;
 
 import com.project.finance.client.YahooFinanceClient;
+import com.project.finance.client.YahooFinanceClient.HistoricalPricePoint;
 import com.project.finance.client.YahooFinanceClient.YahooQuote;
 import com.project.finance.dto.HoldingCurrencyViewResponse;
 import com.project.finance.dto.HoldingCreateRequest;
 import com.project.finance.dto.HoldingCreateResponse;
+import com.project.finance.dto.HoldingHistoryPointResponse;
+import com.project.finance.dto.HoldingHistoryResponse;
+import com.project.finance.dto.HoldingPerformanceViewResponse;
 import com.project.finance.dto.HoldingsInCurrencyResponse;
+import com.project.finance.dto.PortfolioHistoryPointResponse;
+import com.project.finance.dto.PortfolioHistoryResponse;
+import com.project.finance.dto.PortfolioPerformanceResponse;
 import com.project.finance.dto.UserCurrencyUpdateResponse;
 import com.project.finance.entity.Asset;
 import com.project.finance.entity.Currency;
@@ -22,13 +29,19 @@ import com.project.finance.repository.UserAccountRepository;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.TreeMap;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -38,7 +51,16 @@ public class HoldingService {
     private static final String DEFAULT_PORTFOLIO = "Portfolio";
     private static final String USD_CURRENCY_CODE = "USD";
     private static final int MONEY_SCALE = 4;
+    private static final int PERCENT_SCALE = 4;
     private static final int RATE_SCALE = 8;
+    private static final String TREND_UP = "UP";
+    private static final String TREND_DOWN = "DOWN";
+    private static final String TREND_FLAT = "FLAT";
+    private static final String INTERVAL_DAILY = "1d";
+    private static final String INTERVAL_WEEKLY = "1wk";
+    private static final String INTERVAL_MONTHLY = "1mo";
+    private static final long DAILY_INTERVAL_MAX_DAYS = 31;
+    private static final long WEEKLY_INTERVAL_MAX_DAYS = 365;
 
     private final YahooFinanceClient yahooFinanceClient;
     private final CurrencyRepository currencyRepository;
@@ -244,6 +266,376 @@ public class HoldingService {
     }
 
     @Transactional
+    public PortfolioPerformanceResponse getPortfolioPerformance(String username, String requestedCurrencyCode) {
+        String normalizedUsername = normalizeUsername(username);
+
+        UserAccount user = userAccountRepository.findByUsernameIgnoreCase(normalizedUsername)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + normalizedUsername));
+
+        Currency targetCurrency = resolveTargetCurrency(user, requestedCurrencyCode);
+        String targetCurrencyCode = targetCurrency.getCurrencyCode().trim().toUpperCase(Locale.ROOT);
+
+        List<Holding> holdings = holdingRepository.findByUserUserIdOrderByHoldingIdAsc(user.getUserId());
+        if (holdings.isEmpty()) {
+            BigDecimal zeroPercent = BigDecimal.ZERO.setScale(PERCENT_SCALE, RoundingMode.HALF_UP);
+            return new PortfolioPerformanceResponse(
+                    user.getUserId(),
+                    user.getUsername(),
+                    targetCurrencyCode,
+                    LocalDateTime.now(),
+                    0,
+                    zeroMoney(),
+                    zeroMoney(),
+                    zeroMoney(),
+                    zeroPercent,
+                    TREND_FLAT,
+                    List.of()
+            );
+        }
+
+        List<String> symbols = holdings.stream()
+                .map(holding -> holding.getAsset() == null ? null : holding.getAsset().getAssetSymbol())
+                .filter(StringUtils::hasText)
+                .map(symbol -> symbol.trim().toUpperCase(Locale.ROOT))
+                .distinct()
+                .toList();
+
+        Map<String, YahooQuote> quotesBySymbol = new HashMap<>();
+        List<YahooQuote> yahooQuotes = yahooFinanceClient.fetchQuotes(symbols);
+        for (YahooQuote quote : yahooQuotes) {
+            if (quote == null || !StringUtils.hasText(quote.symbol())) {
+                continue;
+            }
+            quotesBySymbol.put(quote.symbol().trim().toUpperCase(Locale.ROOT), quote);
+        }
+
+        Map<String, BigDecimal> exchangeRateCache = new HashMap<>();
+        List<HoldingPerformanceViewResponse> holdingViews = new ArrayList<>();
+
+        BigDecimal totalCurrentValueTarget = zeroMoney();
+        BigDecimal totalPreviousCloseValueTarget = zeroMoney();
+
+        for (Holding holding : holdings) {
+            if (holding.getAsset() == null || !StringUtils.hasText(holding.getAsset().getAssetSymbol())) {
+                continue;
+            }
+
+            String symbol = holding.getAsset().getAssetSymbol().trim().toUpperCase(Locale.ROOT);
+            YahooQuote quote = quotesBySymbol.get(symbol);
+
+            BigDecimal currentPriceSource = resolveCurrentPriceSource(holding, quote);
+            BigDecimal previousCloseSource = resolvePreviousCloseSource(currentPriceSource, quote);
+            String sourceCurrencyCode = resolveHoldingCurrencyCode(holding);
+
+            BigDecimal exchangeRate = exchangeRateCache.computeIfAbsent(
+                    sourceCurrencyCode,
+                    code -> resolveExchangeRate(code, targetCurrencyCode)
+            );
+
+            BigDecimal priceChangeSource = currentPriceSource.subtract(previousCloseSource)
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            BigDecimal priceChangePercent = calculatePercentChange(priceChangeSource, previousCloseSource);
+
+            BigDecimal currentValueTarget = convertAmount(currentPriceSource.multiply(holding.getUnits()), exchangeRate);
+            BigDecimal previousCloseValueTarget = convertAmount(
+                    previousCloseSource.multiply(holding.getUnits()),
+                    exchangeRate
+            );
+            BigDecimal valueChangeTarget = currentValueTarget.subtract(previousCloseValueTarget)
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+
+            totalCurrentValueTarget = totalCurrentValueTarget.add(currentValueTarget);
+            totalPreviousCloseValueTarget = totalPreviousCloseValueTarget.add(previousCloseValueTarget);
+
+            holdingViews.add(new HoldingPerformanceViewResponse(
+                    holding.getHoldingId(),
+                    holding.getPortfolio().getPortfolioId(),
+                    holding.getPortfolio().getPortfolioName(),
+                    symbol,
+                    holding.getAsset().getAssetName(),
+                    holding.getUnits(),
+                    sourceCurrencyCode,
+                    targetCurrencyCode,
+                    exchangeRate,
+                    currentPriceSource.setScale(MONEY_SCALE, RoundingMode.HALF_UP),
+                    previousCloseSource.setScale(MONEY_SCALE, RoundingMode.HALF_UP),
+                    priceChangeSource,
+                    priceChangePercent,
+                    currentValueTarget,
+                    previousCloseValueTarget,
+                    valueChangeTarget,
+                    resolveTrend(valueChangeTarget)
+            ));
+        }
+
+        BigDecimal portfolioValueChangeTarget = totalCurrentValueTarget.subtract(totalPreviousCloseValueTarget)
+                .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        BigDecimal portfolioValueChangePercent = calculatePercentChange(
+                portfolioValueChangeTarget,
+                totalPreviousCloseValueTarget
+        );
+
+        return new PortfolioPerformanceResponse(
+                user.getUserId(),
+                user.getUsername(),
+                targetCurrencyCode,
+                LocalDateTime.now(),
+                holdingViews.size(),
+                totalCurrentValueTarget.setScale(MONEY_SCALE, RoundingMode.HALF_UP),
+                totalPreviousCloseValueTarget.setScale(MONEY_SCALE, RoundingMode.HALF_UP),
+                portfolioValueChangeTarget,
+                portfolioValueChangePercent,
+                resolveTrend(portfolioValueChangeTarget),
+                List.copyOf(holdingViews)
+        );
+    }
+
+    @Transactional
+    public HoldingHistoryResponse getHoldingHistory(
+            String username,
+            String symbol,
+            String requestedCurrencyCode,
+            String requestedInterval
+    ) {
+        String normalizedUsername = normalizeUsername(username);
+        String normalizedSymbol = normalizeSymbol(symbol);
+
+        UserAccount user = userAccountRepository.findByUsernameIgnoreCase(normalizedUsername)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + normalizedUsername));
+
+        Currency targetCurrency = resolveTargetCurrency(user, requestedCurrencyCode);
+        String targetCurrencyCode = targetCurrency.getCurrencyCode().trim().toUpperCase(Locale.ROOT);
+
+        List<Holding> userHoldings = holdingRepository.findByUserUserIdOrderByHoldingIdAsc(user.getUserId());
+        List<Holding> symbolHoldings = userHoldings.stream()
+                .filter(holding -> holding.getAsset() != null
+                        && StringUtils.hasText(holding.getAsset().getAssetSymbol())
+                        && normalizedSymbol.equalsIgnoreCase(holding.getAsset().getAssetSymbol()))
+                .toList();
+
+        if (symbolHoldings.isEmpty()) {
+            throw new IllegalArgumentException("Holding not found for symbol: " + normalizedSymbol);
+        }
+
+        Holding primaryHolding = symbolHoldings.get(0);
+        String sourceCurrencyCode = resolveHoldingCurrencyCode(primaryHolding);
+        BigDecimal exchangeRate = resolveExchangeRate(sourceCurrencyCode, targetCurrencyCode);
+
+        BigDecimal totalUnits = symbolHoldings.stream()
+                .map(Holding::getUnits)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+
+        LocalDate today = LocalDate.now();
+        LocalDate fromDate = symbolHoldings.stream()
+                .map(this::resolveHoldingStartDate)
+                .min(LocalDate::compareTo)
+                .orElse(today.minusMonths(3));
+
+        String effectiveInterval = resolveEffectiveInterval(requestedInterval, fromDate, today);
+        List<HistoricalPricePoint> history = yahooFinanceClient.fetchHistoricalClosePrices(
+                normalizedSymbol,
+                fromDate,
+                today,
+                effectiveInterval
+        );
+
+        List<HoldingHistoryPointResponse> points = new ArrayList<>();
+        for (HistoricalPricePoint point : history) {
+            if (point == null || point.date() == null || point.closePrice() == null) {
+                continue;
+            }
+
+            BigDecimal closePriceSource = point.closePrice().setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            BigDecimal closePriceTarget = convertAmount(closePriceSource, exchangeRate);
+            BigDecimal holdingValueTarget = closePriceTarget.multiply(totalUnits)
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            points.add(new HoldingHistoryPointResponse(
+                    point.date(),
+                    closePriceSource,
+                    closePriceTarget,
+                    holdingValueTarget
+            ));
+        }
+
+        if (points.isEmpty()) {
+            BigDecimal fallbackCloseSource = resolveCurrentPriceSource(primaryHolding, null)
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            BigDecimal fallbackCloseTarget = convertAmount(fallbackCloseSource, exchangeRate);
+            BigDecimal fallbackHoldingValueTarget = fallbackCloseTarget.multiply(totalUnits)
+                    .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            points.add(new HoldingHistoryPointResponse(
+                    today,
+                    fallbackCloseSource,
+                    fallbackCloseTarget,
+                    fallbackHoldingValueTarget
+            ));
+        }
+
+        String assetName = primaryHolding.getAsset() == null ? normalizedSymbol : primaryHolding.getAsset().getAssetName();
+
+        return new HoldingHistoryResponse(
+                user.getUserId(),
+                user.getUsername(),
+                normalizedSymbol,
+                assetName,
+                totalUnits,
+                sourceCurrencyCode,
+                targetCurrencyCode,
+                exchangeRate,
+                effectiveInterval,
+                List.copyOf(points)
+        );
+    }
+
+    @Transactional
+    public PortfolioHistoryResponse getPortfolioHistory(
+            String username,
+            String requestedCurrencyCode,
+            String requestedInterval
+    ) {
+        String normalizedUsername = normalizeUsername(username);
+
+        UserAccount user = userAccountRepository.findByUsernameIgnoreCase(normalizedUsername)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + normalizedUsername));
+
+        Currency targetCurrency = resolveTargetCurrency(user, requestedCurrencyCode);
+        String targetCurrencyCode = targetCurrency.getCurrencyCode().trim().toUpperCase(Locale.ROOT);
+
+        List<Holding> holdings = holdingRepository.findByUserUserIdOrderByHoldingIdAsc(user.getUserId());
+        if (holdings.isEmpty()) {
+            return new PortfolioHistoryResponse(
+                    user.getUserId(),
+                    user.getUsername(),
+                    targetCurrencyCode,
+                    INTERVAL_DAILY,
+                    0,
+                    List.of()
+            );
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate fromDate = holdings.stream()
+                .map(this::resolveHoldingStartDate)
+                .min(LocalDate::compareTo)
+                .orElse(today.minusMonths(3));
+
+        String effectiveInterval = resolveEffectiveInterval(requestedInterval, fromDate, today);
+        Map<String, BigDecimal> exchangeRateCache = new HashMap<>();
+        List<HoldingHistorySeries> seriesByHolding = new ArrayList<>();
+
+        for (Holding holding : holdings) {
+            if (holding.getAsset() == null || !StringUtils.hasText(holding.getAsset().getAssetSymbol())) {
+                continue;
+            }
+
+            String symbol = holding.getAsset().getAssetSymbol().trim().toUpperCase(Locale.ROOT);
+            LocalDate holdingStartDate = resolveHoldingStartDate(holding);
+            String sourceCurrencyCode = resolveHoldingCurrencyCode(holding);
+            BigDecimal exchangeRate = exchangeRateCache.computeIfAbsent(
+                    sourceCurrencyCode,
+                    code -> resolveExchangeRate(code, targetCurrencyCode)
+            );
+
+            List<HistoricalPricePoint> history = yahooFinanceClient.fetchHistoricalClosePrices(
+                    symbol,
+                    holdingStartDate,
+                    today,
+                    effectiveInterval
+            );
+
+            NavigableMap<LocalDate, BigDecimal> closePriceTargetByDate = new TreeMap<>();
+            for (HistoricalPricePoint point : history) {
+                if (point == null || point.date() == null || point.closePrice() == null) {
+                    continue;
+                }
+                BigDecimal closePriceTarget = convertAmount(point.closePrice(), exchangeRate);
+                closePriceTargetByDate.put(point.date(), closePriceTarget);
+            }
+
+            if (closePriceTargetByDate.isEmpty()) {
+                BigDecimal fallbackSourcePrice = resolveCurrentPriceSource(holding, null);
+                closePriceTargetByDate.put(today, convertAmount(fallbackSourcePrice, exchangeRate));
+            }
+
+            seriesByHolding.add(new HoldingHistorySeries(holdingStartDate, holding.getUnits(), closePriceTargetByDate));
+        }
+
+        if (seriesByHolding.isEmpty()) {
+            return new PortfolioHistoryResponse(
+                    user.getUserId(),
+                    user.getUsername(),
+                    targetCurrencyCode,
+                    effectiveInterval,
+                    0,
+                    List.of()
+            );
+        }
+
+        Set<LocalDate> allDates = new TreeSet<>();
+        allDates.add(fromDate);
+        allDates.add(today);
+        for (HoldingHistorySeries series : seriesByHolding) {
+            allDates.addAll(series.closePriceTargetByDate().keySet());
+        }
+
+        List<PortfolioHistoryPointResponse> points = new ArrayList<>();
+        for (LocalDate date : allDates) {
+            BigDecimal totalValueTarget = BigDecimal.ZERO;
+            boolean anyValueFound = false;
+
+            for (HoldingHistorySeries series : seriesByHolding) {
+                if (date.isBefore(series.startDate())) {
+                    continue;
+                }
+
+                Map.Entry<LocalDate, BigDecimal> floorEntry = series.closePriceTargetByDate().floorEntry(date);
+                if (floorEntry == null || floorEntry.getValue() == null) {
+                    continue;
+                }
+
+                BigDecimal holdingValueTarget = floorEntry.getValue().multiply(series.units());
+                totalValueTarget = totalValueTarget.add(holdingValueTarget);
+                anyValueFound = true;
+            }
+
+            if (anyValueFound) {
+                points.add(new PortfolioHistoryPointResponse(
+                        date,
+                        totalValueTarget.setScale(MONEY_SCALE, RoundingMode.HALF_UP)
+                ));
+            }
+        }
+
+        if (points.isEmpty()) {
+            BigDecimal fallbackTotal = zeroMoney();
+            for (Holding holding : holdings) {
+                if (holding.getAsset() == null || !StringUtils.hasText(holding.getAsset().getAssetSymbol())) {
+                    continue;
+                }
+
+                String sourceCurrencyCode = resolveHoldingCurrencyCode(holding);
+                BigDecimal exchangeRate = exchangeRateCache.computeIfAbsent(
+                        sourceCurrencyCode,
+                        code -> resolveExchangeRate(code, targetCurrencyCode)
+                );
+                BigDecimal fallbackPriceTarget = convertAmount(resolveCurrentPriceSource(holding, null), exchangeRate);
+                fallbackTotal = fallbackTotal.add(fallbackPriceTarget.multiply(holding.getUnits()));
+            }
+            points.add(new PortfolioHistoryPointResponse(today, fallbackTotal.setScale(MONEY_SCALE, RoundingMode.HALF_UP)));
+        }
+
+        return new PortfolioHistoryResponse(
+                user.getUserId(),
+                user.getUsername(),
+                targetCurrencyCode,
+                effectiveInterval,
+                seriesByHolding.size(),
+                List.copyOf(points)
+        );
+    }
+
+    @Transactional
     public UserCurrencyUpdateResponse updateUserCurrency(String username, String currencyCode) {
         String normalizedUsername = normalizeUsername(username);
         String normalizedCurrencyCode = normalizeCurrencyCode(currencyCode, "currency");
@@ -438,6 +830,49 @@ public class HoldingService {
                 .orElse(null);
     }
 
+    private BigDecimal resolveCurrentPriceSource(Holding holding, YahooQuote quote) {
+        if (quote != null && isValidRate(quote.regularMarketPrice())) {
+            return quote.regularMarketPrice();
+        }
+        if (isValidRate(holding.getLastPrice())) {
+            return holding.getLastPrice();
+        }
+        if (holding.getAsset() != null && isValidRate(holding.getAsset().getClosePrice())) {
+            return holding.getAsset().getClosePrice();
+        }
+
+        String symbol = holding.getAsset() == null ? "<unknown>" : holding.getAsset().getAssetSymbol();
+        throw new IllegalStateException("Missing current market price for symbol: " + symbol);
+    }
+
+    private BigDecimal resolvePreviousCloseSource(BigDecimal currentPriceSource, YahooQuote quote) {
+        if (quote != null && isValidRate(quote.regularMarketPreviousClose())) {
+            return quote.regularMarketPreviousClose();
+        }
+        return currentPriceSource;
+    }
+
+    private BigDecimal calculatePercentChange(BigDecimal change, BigDecimal base) {
+        if (base == null || base.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO.setScale(PERCENT_SCALE, RoundingMode.HALF_UP);
+        }
+
+        return change
+                .divide(base, PERCENT_SCALE + 6, RoundingMode.HALF_UP)
+                .multiply(new BigDecimal("100"))
+                .setScale(PERCENT_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private String resolveTrend(BigDecimal change) {
+        if (change == null || change.compareTo(BigDecimal.ZERO) == 0) {
+            return TREND_FLAT;
+        }
+        if (change.compareTo(BigDecimal.ZERO) > 0) {
+            return TREND_UP;
+        }
+        return TREND_DOWN;
+    }
+
     private boolean isValidRate(BigDecimal rate) {
         return rate != null && rate.compareTo(BigDecimal.ZERO) > 0;
     }
@@ -475,6 +910,54 @@ public class HoldingService {
         return normalizedCurrencyCode;
     }
 
+    private String normalizeSymbol(String symbol) {
+        if (!StringUtils.hasText(symbol)) {
+            throw new IllegalArgumentException("symbol is required.");
+        }
+
+        String normalizedSymbol = symbol.trim().toUpperCase(Locale.ROOT);
+        if (normalizedSymbol.length() > 10) {
+            throw new IllegalArgumentException("symbol cannot exceed 10 characters.");
+        }
+        return normalizedSymbol;
+    }
+
+    private LocalDate resolveHoldingStartDate(Holding holding) {
+        if (holding != null && holding.getPurchaseDate() != null) {
+            return holding.getPurchaseDate().toLocalDate();
+        }
+        return LocalDate.now().minusMonths(3);
+    }
+
+    private String resolveEffectiveInterval(String requestedInterval, LocalDate fromDate, LocalDate toDate) {
+        if (StringUtils.hasText(requestedInterval)) {
+            return normalizeHistoryInterval(requestedInterval);
+        }
+
+        long ageDays = Math.max(1, ChronoUnit.DAYS.between(fromDate, toDate));
+        if (ageDays <= DAILY_INTERVAL_MAX_DAYS) {
+            return INTERVAL_DAILY;
+        }
+        if (ageDays <= WEEKLY_INTERVAL_MAX_DAYS) {
+            return INTERVAL_WEEKLY;
+        }
+        return INTERVAL_MONTHLY;
+    }
+
+    private String normalizeHistoryInterval(String interval) {
+        if (!StringUtils.hasText(interval)) {
+            throw new IllegalArgumentException("interval is required.");
+        }
+
+        String normalized = interval.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "1d", "1day", "day", "daily" -> INTERVAL_DAILY;
+            case "1wk", "1w", "week", "weekly" -> INTERVAL_WEEKLY;
+            case "1mo", "1m", "month", "monthly" -> INTERVAL_MONTHLY;
+            default -> throw new IllegalArgumentException("Unsupported interval: " + interval);
+        };
+    }
+
     private Asset findOrCreateAsset(String symbol, YahooQuote quote, Currency currency) {
         Asset asset = assetRepository.findByAssetSymbolIgnoreCase(symbol).orElse(null);
 
@@ -505,16 +988,16 @@ public class HoldingService {
             asset.setCurrency(currency);
             changed = true;
         }
-        if (!equalsDecimal(asset.getOpenPrice(), openPrice)) {
+        if (openPrice != null && !equalsDecimal(asset.getOpenPrice(), openPrice)) {
             asset.setOpenPrice(openPrice);
             changed = true;
         }
-        if (!equalsDecimal(asset.getClosePrice(), closePrice)) {
+        if (closePrice != null && !equalsDecimal(asset.getClosePrice(), closePrice)) {
             asset.setClosePrice(closePrice);
             changed = true;
         }
         String normalizedExchange = normalizeNullableText(stockExchange);
-        if (!equalsText(asset.getStockExchange(), normalizedExchange)) {
+        if (StringUtils.hasText(normalizedExchange) && !equalsText(asset.getStockExchange(), normalizedExchange)) {
             asset.setStockExchange(limitLength(normalizedExchange, 50));
             changed = true;
         }
@@ -639,5 +1122,12 @@ public class HoldingService {
             return false;
         }
         return left.trim().equalsIgnoreCase(right.trim());
+    }
+
+    private record HoldingHistorySeries(
+            LocalDate startDate,
+            BigDecimal units,
+            NavigableMap<LocalDate, BigDecimal> closePriceTargetByDate
+    ) {
     }
 }

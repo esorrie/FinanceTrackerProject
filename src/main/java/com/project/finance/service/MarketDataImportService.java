@@ -12,10 +12,15 @@ import com.project.finance.repository.CurrencyRepository;
 import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -29,6 +34,7 @@ public class MarketDataImportService {
     private static final int MAX_PAGE_SIZE = 250;
     private static final int MAX_ALLOWED_PAGES = 200;
     private static final int SYMBOL_SAMPLE_LIMIT = 100;
+    private static final int DEFAULT_REFRESH_BATCH_SIZE = 200;
 
     private final YahooFinanceClient yahooFinanceClient;
     private final AssetRepository assetRepository;
@@ -180,6 +186,83 @@ public class MarketDataImportService {
         );
     }
 
+    public AssetMarketRefreshSummary refreshAllTrackedAssetsMarketData() {
+        return refreshAllTrackedAssetsMarketData(DEFAULT_REFRESH_BATCH_SIZE);
+    }
+
+    public AssetMarketRefreshSummary refreshAllTrackedAssetsMarketData(int batchSize) {
+        if (batchSize <= 0) {
+            throw new IllegalArgumentException("batchSize must be greater than zero.");
+        }
+
+        long totalAssets = assetRepository.count();
+        if (totalAssets == 0) {
+            return new AssetMarketRefreshSummary(0, 0, 0, 0, 0, 0);
+        }
+
+        int batchesProcessed = 0;
+        int quotesReturned = 0;
+        int assetsMatched = 0;
+        int assetsUpdated = 0;
+        int assetsMissingQuote = 0;
+
+        int pageIndex = 0;
+        while (true) {
+            Page<Asset> page = assetRepository.findAll(PageRequest.of(pageIndex, batchSize));
+            if (page.isEmpty()) {
+                break;
+            }
+
+            List<Asset> assets = page.getContent();
+            List<String> symbols = assets.stream()
+                    .map(Asset::getAssetSymbol)
+                    .filter(StringUtils::hasText)
+                    .map(symbol -> symbol.trim().toUpperCase(Locale.ROOT))
+                    .distinct()
+                    .toList();
+
+            if (!symbols.isEmpty()) {
+                List<YahooQuote> quotes = yahooFinanceClient.fetchQuotes(symbols);
+                quotesReturned += quotes.size();
+                Map<String, YahooQuote> quoteBySymbol = new HashMap<>();
+                for (YahooQuote quote : quotes) {
+                    if (quote == null || !StringUtils.hasText(quote.symbol())) {
+                        continue;
+                    }
+                    quoteBySymbol.put(quote.symbol().trim().toUpperCase(Locale.ROOT), quote);
+                }
+
+                for (String symbol : symbols) {
+                    YahooQuote quote = quoteBySymbol.get(symbol);
+                    if (quote == null) {
+                        assetsMissingQuote++;
+                        continue;
+                    }
+                    assetsMatched++;
+                    StoredQuoteResult storedQuote = storeQuote(quote, true, true);
+                    if (storedQuote.updatedAsset()) {
+                        assetsUpdated++;
+                    }
+                }
+            }
+
+            batchesProcessed++;
+            if (page.isLast()) {
+                break;
+            }
+            pageIndex++;
+        }
+
+        return new AssetMarketRefreshSummary(
+                totalAssets,
+                batchesProcessed,
+                quotesReturned,
+                assetsMatched,
+                assetsUpdated,
+                assetsMissingQuote
+        );
+    }
+
     private List<String> normalizeSymbols(List<String> symbols) {
         if (symbols == null) {
             return List.of();
@@ -244,20 +327,21 @@ public class MarketDataImportService {
                 asset.setAssetName(assetName);
                 changed = true;
             }
-            if (asset.getCurrency() == null
-                    || !currencyCode.equalsIgnoreCase(asset.getCurrency().getCurrencyCode())) {
+            Integer existingCurrencyId = asset.getCurrency() == null ? null : asset.getCurrency().getCurrencyId();
+            Integer incomingCurrencyId = currency.getCurrencyId();
+            if (!Objects.equals(existingCurrencyId, incomingCurrencyId)) {
                 asset.setCurrency(currency);
                 changed = true;
             }
-            if (!equalsDecimal(asset.getOpenPrice(), openPrice)) {
+            if (openPrice != null && !equalsDecimal(asset.getOpenPrice(), openPrice)) {
                 asset.setOpenPrice(openPrice);
                 changed = true;
             }
-            if (!equalsDecimal(asset.getClosePrice(), closePrice)) {
+            if (closePrice != null && !equalsDecimal(asset.getClosePrice(), closePrice)) {
                 asset.setClosePrice(closePrice);
                 changed = true;
             }
-            if (!equalsText(asset.getStockExchange(), stockExchange)) {
+            if (StringUtils.hasText(stockExchange) && !equalsText(asset.getStockExchange(), stockExchange)) {
                 asset.setStockExchange(stockExchange);
                 changed = true;
             }
@@ -344,5 +428,15 @@ public class MarketDataImportService {
         private static StoredQuoteResult skipped() {
             return new StoredQuoteResult(false, null, false, false, false, false);
         }
+    }
+
+    public record AssetMarketRefreshSummary(
+            long totalAssets,
+            int batchesProcessed,
+            int quotesReturned,
+            int assetsMatched,
+            int assetsUpdated,
+            int assetsMissingQuote
+    ) {
     }
 }
