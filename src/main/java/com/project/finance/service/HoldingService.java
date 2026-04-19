@@ -8,13 +8,11 @@ import com.project.finance.dto.HoldingCreateResponse;
 import com.project.finance.dto.HoldingsInCurrencyResponse;
 import com.project.finance.dto.UserCurrencyUpdateResponse;
 import com.project.finance.entity.Asset;
-import com.project.finance.entity.AssetHistory;
 import com.project.finance.entity.Currency;
 import com.project.finance.entity.ExchangeRate;
 import com.project.finance.entity.Holding;
 import com.project.finance.entity.Portfolio;
 import com.project.finance.entity.UserAccount;
-import com.project.finance.repository.AssetHistoryRepository;
 import com.project.finance.repository.AssetRepository;
 import com.project.finance.repository.CurrencyRepository;
 import com.project.finance.repository.ExchangeRateRepository;
@@ -43,7 +41,6 @@ public class HoldingService {
     private final YahooFinanceClient yahooFinanceClient;
     private final CurrencyRepository currencyRepository;
     private final AssetRepository assetRepository;
-    private final AssetHistoryRepository assetHistoryRepository;
     private final ExchangeRateRepository exchangeRateRepository;
     private final UserAccountRepository userAccountRepository;
     private final PortfolioRepository portfolioRepository;
@@ -53,7 +50,6 @@ public class HoldingService {
             YahooFinanceClient yahooFinanceClient,
             CurrencyRepository currencyRepository,
             AssetRepository assetRepository,
-            AssetHistoryRepository assetHistoryRepository,
             ExchangeRateRepository exchangeRateRepository,
             UserAccountRepository userAccountRepository,
             PortfolioRepository portfolioRepository,
@@ -62,7 +58,6 @@ public class HoldingService {
         this.yahooFinanceClient = yahooFinanceClient;
         this.currencyRepository = currencyRepository;
         this.assetRepository = assetRepository;
-        this.assetHistoryRepository = assetHistoryRepository;
         this.exchangeRateRepository = exchangeRateRepository;
         this.userAccountRepository = userAccountRepository;
         this.portfolioRepository = portfolioRepository;
@@ -84,7 +79,6 @@ public class HoldingService {
 
         Currency currency = findOrCreateCurrency(currencyCode);
         Asset asset = findOrCreateAsset(symbol, quote, currency);
-        saveAssetHistory(asset, currency, quote.regularMarketPrice());
 
         UserAccount user = findOrCreateUser(username, currency);
         Portfolio portfolio = findOrCreatePortfolio(user, portfolioName);
@@ -455,13 +449,7 @@ public class HoldingService {
         return asset;
     }
 
-    private void saveAssetHistory(Asset asset, Currency currency, BigDecimal price) {
-        AssetHistory history = new AssetHistory();
-        history.setAsset(asset);
-        history.setCurrency(currency);
-        history.setPrice(price);
-        assetHistoryRepository.save(history);
-    }
+    // asset_history removed: price history rows are no longer recorded
 
     private UserAccount findOrCreateUser(String username, Currency currency) {
         UserAccount user = userAccountRepository.findByUsernameIgnoreCase(username).orElse(null);

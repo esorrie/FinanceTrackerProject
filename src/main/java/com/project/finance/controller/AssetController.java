@@ -23,10 +23,14 @@ public class AssetController {
     public List<AssetResponse> listAssets() {
         List<Asset> assets = assetRepository.findAll();
         return assets.stream().map(a -> new AssetResponse(
-                a.getAssetId(),
-                a.getAssetSymbol(),
-                a.getAssetName(),
-                a.getCurrency() != null ? a.getCurrency().getCurrencyCode() : null
+            a.getAssetId(),
+            a.getAssetSymbol(),
+            a.getAssetName(),
+            a.getCurrency() != null ? a.getCurrency().getCurrencyCode() : null,
+            a.getPrice(),
+            a.getOpeningPrice(),
+            a.getClosingPrice(),
+            a.getStockExchange()
         )).collect(Collectors.toList());
     }
 }

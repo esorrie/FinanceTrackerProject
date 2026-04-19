@@ -6,9 +6,7 @@ import com.project.finance.client.YahooFinanceClient.YahooQuote;
 import com.project.finance.dto.MarketDataImportResponse;
 import com.project.finance.dto.MarketDataStockImportResponse;
 import com.project.finance.entity.Asset;
-import com.project.finance.entity.AssetHistory;
 import com.project.finance.entity.Currency;
-import com.project.finance.repository.AssetHistoryRepository;
 import com.project.finance.repository.AssetRepository;
 import com.project.finance.repository.CurrencyRepository;
 import jakarta.transaction.Transactional;
@@ -33,18 +31,15 @@ public class MarketDataImportService {
     private final YahooFinanceClient yahooFinanceClient;
     private final AssetRepository assetRepository;
     private final CurrencyRepository currencyRepository;
-    private final AssetHistoryRepository assetHistoryRepository;
 
     public MarketDataImportService(
             YahooFinanceClient yahooFinanceClient,
             AssetRepository assetRepository,
-            CurrencyRepository currencyRepository,
-            AssetHistoryRepository assetHistoryRepository
+            CurrencyRepository currencyRepository
     ) {
         this.yahooFinanceClient = yahooFinanceClient;
         this.assetRepository = assetRepository;
         this.currencyRepository = currencyRepository;
-        this.assetHistoryRepository = assetHistoryRepository;
     }
 
     @Transactional
@@ -58,7 +53,7 @@ public class MarketDataImportService {
 
         int newAssets = 0;
         int newCurrencies = 0;
-        int savedQuotes = 0;
+        int savedQuotes = 0; // kept for DTO compatibility; we do not store history rows
         List<String> symbolsSaved = new ArrayList<>();
 
         for (YahooQuote quote : quotes) {
@@ -72,9 +67,7 @@ public class MarketDataImportService {
             if (storedQuote.newCurrency()) {
                 newCurrencies++;
             }
-            if (storedQuote.historySaved()) {
-                savedQuotes++;
-            }
+            // asset history rows removed; savedQuotes remains 0
             symbolsSaved.add(storedQuote.symbol());
         }
 
@@ -106,7 +99,7 @@ public class MarketDataImportService {
         int newAssets = 0;
         int updatedAssets = 0;
         int newCurrencies = 0;
-        int savedHistoryRows = 0;
+        int savedHistoryRows = 0; // kept for DTO compatibility
         Integer totalAvailable = null;
         Set<String> symbolsSample = new LinkedHashSet<>();
 
@@ -142,9 +135,7 @@ public class MarketDataImportService {
                 if (storedQuote.newCurrency()) {
                     newCurrencies++;
                 }
-                if (storedQuote.historySaved()) {
-                    savedHistoryRows++;
-                }
+                // history rows are not stored anymore
                 if (symbolsSample.size() < SYMBOL_SAMPLE_LIMIT) {
                     symbolsSample.add(storedQuote.symbol());
                 }
@@ -218,6 +209,18 @@ public class MarketDataImportService {
             asset.setAssetSymbol(symbol);
             asset.setAssetName(assetName);
             asset.setCurrency(currency);
+            if (quote.regularMarketPrice() != null) {
+                asset.setPrice(quote.regularMarketPrice());
+            }
+            if (quote.openingPrice() != null) {
+                asset.setOpeningPrice(quote.openingPrice());
+            }
+            if (quote.closingPrice() != null) {
+                asset.setClosingPrice(quote.closingPrice());
+            }
+            if (quote.stockExchange() != null) {
+                asset.setStockExchange(quote.stockExchange());
+            }
             asset = assetRepository.save(asset);
             newAsset = true;
         } else {
@@ -231,23 +234,38 @@ public class MarketDataImportService {
                 asset.setCurrency(currency);
                 changed = true;
             }
+            if (quote.regularMarketPrice() != null) {
+                if (asset.getPrice() == null || quote.regularMarketPrice().compareTo(asset.getPrice()) != 0) {
+                    asset.setPrice(quote.regularMarketPrice());
+                    changed = true;
+                }
+            }
+            if (quote.openingPrice() != null) {
+                if (asset.getOpeningPrice() == null || quote.openingPrice().compareTo(asset.getOpeningPrice()) != 0) {
+                    asset.setOpeningPrice(quote.openingPrice());
+                    changed = true;
+                }
+            }
+            if (quote.closingPrice() != null) {
+                if (asset.getClosingPrice() == null || quote.closingPrice().compareTo(asset.getClosingPrice()) != 0) {
+                    asset.setClosingPrice(quote.closingPrice());
+                    changed = true;
+                }
+            }
+            if (quote.stockExchange() != null) {
+                if (asset.getStockExchange() == null || !quote.stockExchange().equals(asset.getStockExchange())) {
+                    asset.setStockExchange(quote.stockExchange());
+                    changed = true;
+                }
+            }
             if (changed) {
                 asset = assetRepository.save(asset);
                 updatedAsset = true;
             }
         }
 
-        boolean historySaved = false;
-        if (quote.regularMarketPrice() != null) {
-            AssetHistory assetHistory = new AssetHistory();
-            assetHistory.setAsset(asset);
-            assetHistory.setCurrency(currency);
-            assetHistory.setPrice(quote.regularMarketPrice());
-            assetHistoryRepository.save(assetHistory);
-            historySaved = true;
-        }
-
-        return new StoredQuoteResult(true, symbol, newAsset, updatedAsset, newCurrency, historySaved);
+        // asset history table removed: we do not persist individual price history rows
+        return new StoredQuoteResult(true, symbol, newAsset, updatedAsset, newCurrency, false);
     }
 
     private boolean canBeStored(YahooQuote quote, boolean requirePrice) {

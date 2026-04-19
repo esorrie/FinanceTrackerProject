@@ -124,13 +124,39 @@ public class YahooFinanceClient {
                 return null;
             }
 
-            ChartMeta meta = response.chart().result().get(0).meta();
+            ChartResult result0 = response.chart().result().get(0);
+            ChartMeta meta = result0.meta();
+
+            java.math.BigDecimal opening = null;
+            java.math.BigDecimal closing = null;
+            if (result0.indicators() != null
+                    && result0.indicators().quote() != null
+                    && !result0.indicators().quote().isEmpty()) {
+                QuoteIndicator qi = result0.indicators().quote().get(0);
+                if (qi.open() != null && !qi.open().isEmpty()) {
+                    opening = qi.open().get(0);
+                }
+                if (qi.close() != null && !qi.close().isEmpty()) {
+                    closing = qi.close().get(0);
+                }
+            }
+
+            String exchange = null;
+            if (meta.fullExchangeName() != null) {
+                exchange = meta.fullExchangeName();
+            } else if (meta.exchangeName() != null) {
+                exchange = meta.exchangeName();
+            }
+
             return new YahooQuote(
                     meta.symbol(),
                     meta.shortName(),
                     meta.longName(),
                     meta.currency(),
-                    meta.regularMarketPrice()
+                    meta.regularMarketPrice(),
+                    opening,
+                    closing,
+                    exchange
             );
         } catch (RestClientResponseException ex) {
             throw new IllegalStateException(
@@ -182,7 +208,10 @@ public class YahooFinanceClient {
                     readTextField(quoteNode, "shortName"),
                     readTextField(quoteNode, "longName"),
                     readTextField(quoteNode, "currency"),
-                    readDecimalField(quoteNode, "regularMarketPrice")
+                    readDecimalField(quoteNode, "regularMarketPrice"),
+                    null,
+                    null,
+                    null
             ));
         }
 
@@ -309,14 +338,17 @@ public class YahooFinanceClient {
         return compact.substring(0, maxLength) + "...";
     }
 
-    public record YahooQuote(
+        public record YahooQuote(
             String symbol,
             String shortName,
             String longName,
             String currency,
-            BigDecimal regularMarketPrice
-    ) {
-    }
+            BigDecimal regularMarketPrice,
+            BigDecimal openingPrice,
+            BigDecimal closingPrice,
+            String stockExchange
+        ) {
+        }
 
     public record ScreenerPage(
             List<YahooQuote> quotes,
@@ -327,18 +359,26 @@ public class YahooFinanceClient {
     private record YahooChartApiResponse(Chart chart) {
     }
 
-    private record Chart(List<ChartResult> result, Object error) {
-    }
+        private record Chart(List<ChartResult> result, Object error) {
+        }
 
-    private record ChartResult(ChartMeta meta) {
-    }
+        private record ChartResult(ChartMeta meta, Indicators indicators) {
+        }
 
-    private record ChartMeta(
+        private record Indicators(List<QuoteIndicator> quote) {
+        }
+
+        private record QuoteIndicator(List<BigDecimal> open, List<BigDecimal> high, List<BigDecimal> low, List<BigDecimal> close, List<Long> volume) {
+        }
+
+        private record ChartMeta(
             String symbol,
             String shortName,
             String longName,
             String currency,
-            BigDecimal regularMarketPrice
-    ) {
-    }
+            BigDecimal regularMarketPrice,
+            String exchangeName,
+            String fullExchangeName
+        ) {
+        }
 }

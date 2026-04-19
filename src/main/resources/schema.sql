@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS tbl_asset (
                                          asset_id INT AUTO_INCREMENT PRIMARY KEY,
                                          asset_symbol VARCHAR(10) NOT NULL UNIQUE,
     asset_name VARCHAR(50) NOT NULL,
+    price DECIMAL(19, 4),
+    opening_price DECIMAL(19, 4),
+    closing_price DECIMAL(19, 4),
+    stock_exchange VARCHAR(100),
     currency_id INT NOT NULL,
     CONSTRAINT fk_asset_currency FOREIGN KEY (currency_id) REFERENCES tbl_currency(currency_id)
     );
@@ -61,14 +65,4 @@ CREATE TABLE IF NOT EXISTS tbl_favourites (
     CONSTRAINT fk_favourite_asset FOREIGN KEY (asset_id) REFERENCES tbl_asset(asset_id),
     CONSTRAINT uq_favourite_user_asset UNIQUE (user_id, asset_id),
     CONSTRAINT uq_favourite_user_display UNIQUE (user_id, display)
-    );
-
-CREATE TABLE IF NOT EXISTS asset_history (
-                                             history_id INT AUTO_INCREMENT PRIMARY KEY,
-                                             asset_id INT NOT NULL,
-                                             price DECIMAL(19, 4) NOT NULL,
-    currency_id INT NOT NULL,
-    lastupdate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_asset_history_asset FOREIGN KEY (asset_id) REFERENCES tbl_asset(asset_id),
-    CONSTRAINT fk_asset_history_currency FOREIGN KEY (currency_id) REFERENCES tbl_currency(currency_id)
     );

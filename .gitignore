@@ -37,3 +37,7 @@ finance-api-checks.rest
 .env
 src/main/resources/static/frontend/src/Components/Images/SpendX logo White text.png
 src/main/resources/static/frontend/src/Components/Images/SpendX logo.png
+
+
+docker compose exec mysql mysql -uroot -p"${DB_ROOT_PASSWORD}" -e "CREATE USER 'finance_admin'@'%' IDENTIFIED BY 'root'; GRANT ALL PRIVILEGES ON *.* TO 'finance_admin'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+docker compose exec -T mysql mysql -ufinance_admin -p'root' finance_db < src/main/resources/schema.sql

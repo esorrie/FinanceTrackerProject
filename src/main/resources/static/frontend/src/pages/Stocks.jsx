@@ -117,8 +117,6 @@ const Stocks = () => {
                                     </>
                                 ))}
                             </div>
-                            <div> Asset 1 </div>
-                        
                         </div>
                 </div>
             </div>

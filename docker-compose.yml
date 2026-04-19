@@ -14,5 +14,29 @@ services:
       SERVICE_TAGS: dev
       SERVICE_NAME: mysql
 
+  frontend:
+    build:
+      context: ./src/main/resources/static/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - mysql
+    restart: unless-stopped
+
+  mysql-init:
+    image: mysql:8.0.31
+    depends_on:
+      - mysql
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh","/docker/mysql-init.sh"]
+    volumes:
+      - ./src/main/resources/schema.sql:/tmp/schema.sql:ro
+      - ./docker/mysql-init.sh:/docker/mysql-init.sh:ro
+    restart: "no"
+
 volumes:
   finance_mysql_data:

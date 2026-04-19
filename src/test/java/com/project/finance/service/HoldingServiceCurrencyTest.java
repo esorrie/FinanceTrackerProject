@@ -16,7 +16,6 @@ import com.project.finance.entity.ExchangeRate;
 import com.project.finance.entity.Holding;
 import com.project.finance.entity.Portfolio;
 import com.project.finance.entity.UserAccount;
-import com.project.finance.repository.AssetHistoryRepository;
 import com.project.finance.repository.AssetRepository;
 import com.project.finance.repository.CurrencyRepository;
 import com.project.finance.repository.ExchangeRateRepository;
@@ -39,10 +38,8 @@ class HoldingServiceCurrencyTest {
     private YahooFinanceClient yahooFinanceClient;
     @Mock
     private CurrencyRepository currencyRepository;
-    @Mock
-    private AssetRepository assetRepository;
-    @Mock
-    private AssetHistoryRepository assetHistoryRepository;
+        @Mock
+        private AssetRepository assetRepository;
     @Mock
     private ExchangeRateRepository exchangeRateRepository;
     @Mock
@@ -60,7 +57,6 @@ class HoldingServiceCurrencyTest {
                 yahooFinanceClient,
                 currencyRepository,
                 assetRepository,
-                assetHistoryRepository,
                 exchangeRateRepository,
                 userAccountRepository,
                 portfolioRepository,
