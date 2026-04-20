@@ -12,7 +12,7 @@
     height: auto;
     display: block;
     object-fit: cover;
-    
+
 }
 
 .navBarTitle {
@@ -48,6 +48,10 @@
     align-items: center;
 }
 
+.navBarSearchWrapper {
+    position: relative;
+}
+
 .navBarSearch {
     display: flex;
     align-items: center;
@@ -76,6 +80,61 @@
 
 .navBarSearchInput:focus {
     width: 300px;
+}
+
+.navBarSearchSuggestions {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 320px;
+    max-height: 280px;
+    overflow-y: auto;
+    background: rgb(34, 34, 34);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    z-index: 1100;
+}
+
+.navBarSearchSuggestion {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: transparent;
+    border: none;
+    color: white;
+    text-align: left;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+.navBarSearchSuggestion:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.navBarSearchSuggestionName {
+    font-size: 0.95rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.navBarSearchSuggestionSymbol {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.68);
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+}
+
+.navBarSearchSuggestionStatus {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    padding: 12px;
 }
 
 .navDropdownToggle {
@@ -158,4 +217,5 @@
     .navBarSearchInput { width: 120px; }
     .navBarSearchInput:focus { width: 200px; }
     .navBarContentEnd { padding-right: 1rem; }
+    .navBarSearchSuggestions { width: min(280px, 90vw); }
 }
