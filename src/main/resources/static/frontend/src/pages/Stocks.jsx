@@ -3,12 +3,13 @@ import "../css/Stocks.css";
 
 const Stocks = () => {
     const [assets, setAssets] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [addingId, setAddingId] = useState(null);
+
+    const portfolioId = 1;
 
     useEffect(() => {
         let mounted = true;
-        setLoading(true);
         fetch('/api/assets')
             .then(res => {
                 if (!res.ok) throw new Error('Network error');
@@ -19,39 +20,105 @@ const Stocks = () => {
             })
             .catch(err => {
                 if (mounted) setError(err.message || 'Failed to fetch assets');
-            })
-            .finally(() => { if (mounted) setLoading(false); });
+            });
 
         return () => { mounted = false; };
     }, []);
+
+    const addToPortfolio = async (assetId, assetSymbol) => {
+        if (!portfolioId) {
+            alert('Please select a portfolio first');
+            return;
+        }
+
+        const username = window.prompt('Enter your username to associate the holding with:', 'demo');
+        if (!username) return;
+
+        const unitsRaw = window.prompt('Enter number of units (e.g. 1.5):', '1');
+        if (!unitsRaw) return;
+        const units = Number(unitsRaw);
+        if (Number.isNaN(units) || units <= 0) {
+            alert('Invalid units');
+            return;
+        }
+
+        const avgPriceRaw = window.prompt('Enter average purchase price (e.g. 123.45):', '0');
+        if (!avgPriceRaw) return;
+        const avgPurchasePrice = Number(avgPriceRaw);
+        if (Number.isNaN(avgPurchasePrice) || avgPurchasePrice <= 0) {
+            alert('Invalid average purchase price');
+            return;
+        }
+
+        const portfolioName = window.prompt('Enter portfolio name (or leave blank to use default):', 'Portfolio');
+
+        try {
+            setAddingId(assetId);
+
+            const body = {
+                username: username,
+                symbol: assetSymbol,
+                units: units,
+                avgPurchasePrice: avgPurchasePrice,
+                portfolioName: portfolioName || undefined
+            };
+
+            const res = await fetch('/api/holdings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || 'Failed to create holding');
+            }
+
+            const created = await res.json();
+            console.log('Created holding:', created);
+            alert('Holding created for ' + assetSymbol);
+        } catch (err) {
+            console.error(err);
+            alert('Error creating holding: ' + (err.message || err));
+        } finally {
+            setAddingId(null);
+        }
+    }
 
     return (
         <>
             <div className="stocksMainContainer">
                 <div className="stocksListContainer">
-                    {/* {!loading && !error && ( */}
                         <div className="stocksTable">
                             <div className="stocksTableHeader">
                                 <div className="stocksTableColumnName">Name</div>
                                 <div className="stocksTableColumnSymbol">Symbol</div>
-                                <div className="stocksTableColumnCurrentPrice">Current Price</div>
+                                <div className="stocksTableColumnPrice">Price</div>
                                 <div className="stocksTableColumnChange">Change</div>
                                 <div className="stocksTableColumnExchange">Exchange</div>
                             </div>
-                            {/* <div>
+                            <div>
                                 {assets.map(a => (
-                                    <div key={a.assetId}>
-                                        <div>{a.assetId}</div>
-                                        <div>{a.assetSymbol}</div>
-                                        <div>{a.assetName}</div>
-                                        <div>{a.currencyCode}</div>
-                                    </div>
+                                    <>
+                                        <div className="assetInfoContainer" key={a.assetId}>
+                                            <button
+                                            onClick={() => addToPortfolio(a.assetId, a.assetSymbol)}
+                                            disabled={addingId === a.assetId}
+                                            >
+                                                {addingId === a.assetId ? 'Adding...' : '+'}
+                                            </button>
+                                            <div className="assetName">{a.assetName}</div>
+                                            <div className="assetSymbol">{a.assetSymbol}</div>
+                                            <div className="assetPrice">{a.price}</div>
+                                            <div className="assetChange">{a.change}</div>
+                                            <div className="assetExchange">{a.exchange}</div>
+                                        </div>
+                                    </>
                                 ))}
-                            </div> */}
-                            {/* <div> Asset 1 </div> */}
+                            </div>
+                            <div> Asset 1 </div>
                         
                         </div>
-                    {/* )} */}
                 </div>
             </div>
         </>

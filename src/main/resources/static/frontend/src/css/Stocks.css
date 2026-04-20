@@ -9,7 +9,7 @@
     display: flex;
     flex-direction: column;
     padding: 20px 15px;
-    margin: 20px 15px 20px 30px;
+    margin: 20px 15px 20px 15px;
     box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
 }
@@ -32,11 +32,9 @@
     font-weight: bold;
     border-left : 3px solid rgba(255, 255, 255, 0.3);
     padding-left: 90px;
-   
-
     
 }
-.stocksTableColumnCurrentPrice {
+.stocksTableColumnPrice {
     font-size: 1.5em;
     font-weight: bold;
     border-left : 3px solid rgba(255, 255, 255, 0.3);
@@ -54,4 +52,38 @@
     font-weight: bold;
     border-left : 3px solid rgba(255, 255, 255, 0.3);
     padding-left: 10px;
+}
+
+.assetInfoContainer {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px 15px;
+    border-top : 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.assetName {
+    font-size: 1.25em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 10px;
+}
+.assetSymbol {
+    font-size: 1.25em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 90px;
+    
+}
+.assetPrice {
+    font-size: 1.25em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 100px;
+}
+.assetChange {
+    font-size: 1.25em;
+    font-weight: bold;
+    border-left : 3px solid rgba(255, 255, 255, 0.3);
+    padding-left: 100px;
 }
