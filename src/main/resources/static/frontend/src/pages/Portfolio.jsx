@@ -286,7 +286,7 @@ const Portfolio = () => {
             setSelectedHoldingHistoryError("");
             setIsSelectedHoldingHistoryLoading(false);
         }
-    }, [holdings, selectedHoldingSymbol]);
+    }, [holdings, selectedHoldingSymbol, selectedCurrency]);
 
     useEffect(() => {
         if (selectedHoldingSymbol && isPortfolioFullscreen) {
@@ -362,6 +362,23 @@ const Portfolio = () => {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
+    };
+
+    const formatChartAxisValue = (value) => {
+        const numberValue = Number(value);
+        if (!Number.isFinite(numberValue)) return "0";
+
+        const absoluteValue = Math.abs(numberValue);
+        if (absoluteValue >= 1000) {
+            const compactValue = absoluteValue / 1000;
+            const compactLabel = compactValue.toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 1
+            });
+            return `${numberValue < 0 ? "-" : ""}${compactLabel}K`;
+        }
+
+        return formatNumber(numberValue);
     };
 
     const formatCurrencyAmount = (value, currencyCode) => {
@@ -625,6 +642,37 @@ const Portfolio = () => {
     const sortedHoldings = useMemo(() => {
         return [...holdings].sort((a, b) => Number(b.marketValueTarget || 0) - Number(a.marketValueTarget || 0));
     }, [holdings]);
+
+    const selectedHoldingTradePrice = useMemo(() => {
+        if (!selectedHoldingSymbol) return null;
+
+        const selectedHolding = holdings.find(
+            (holding) => holding?.symbol === selectedHoldingSymbol
+        );
+        if (!selectedHolding) return null;
+
+        const tradePrice = Number(selectedHolding.lastPriceSource);
+        if (!Number.isFinite(tradePrice)) return null;
+
+        return {
+            value: tradePrice,
+            currencyCode: selectedHolding.sourceCurrency || selectedCurrency
+        };
+    }, [holdings, selectedHoldingSymbol, selectedCurrency]);
+
+    const selectedHoldingIdentity = useMemo(() => {
+        if (!selectedHoldingSymbol) return null;
+
+        const selectedHolding = holdings.find(
+            (holding) => holding?.symbol === selectedHoldingSymbol
+        );
+
+        return {
+            assetName: selectedHolding?.assetName || selectedHoldingHistoryMeta.assetName || selectedHoldingSymbol,
+            symbol: selectedHolding?.symbol || selectedHoldingHistoryMeta.symbol || selectedHoldingSymbol,
+            stockExchange: selectedHolding?.stockExchange || "Unknown exchange"
+        };
+    }, [holdings, selectedHoldingSymbol, selectedHoldingHistoryMeta.assetName, selectedHoldingHistoryMeta.symbol]);
 
 
     const graphDateRange = useMemo(() => {
@@ -895,8 +943,8 @@ const Portfolio = () => {
                                     <>
                                         <div className="portfolioGraphHeaderRow">
                                             <div className="portfolioGraphHeader">
-                                                <div className="portfolioGraphTitle">Portfolio history</div>
-                                                <div className="portfolioGraphSubtitle">
+                                                <div className="portfolioGraphTitle portfolioGraphTitlePortfolio">Portfolio history</div>
+                                                <div className="portfolioGraphSubtitle portfolioGraphSubtitlePortfolio">
                                                     Value in {portfolioSummary.targetCurrency} | Range {portfolioActiveRangeLabel}
                                                 </div>
                                             </div>
@@ -945,7 +993,7 @@ const Portfolio = () => {
                                                         className="portfolioGraphGridLine"
                                                     />
                                                     <text x="4" y={tick.y + 4} className="portfolioGraphAxisLabel">
-                                                        {formatNumber(tick.value)}
+                                                        {formatChartAxisValue(tick.value)}
                                                     </text>
                                                 </g>
                                             ))}
@@ -1051,8 +1099,8 @@ const Portfolio = () => {
                             <>
                                 <div className="portfolioGraphHeaderRow">
                                     <div className="portfolioGraphHeader">
-                                        <div className="portfolioGraphTitle">Portfolio history</div>
-                                        <div className="portfolioGraphSubtitle">
+                                        <div className="portfolioGraphTitle portfolioGraphTitlePortfolio">Portfolio history</div>
+                                        <div className="portfolioGraphSubtitle portfolioGraphSubtitlePortfolio">
                                             Expanded view | Value in {portfolioSummary.targetCurrency} | Range {portfolioActiveRangeLabel}
                                         </div>
                                     </div>
@@ -1125,7 +1173,7 @@ const Portfolio = () => {
                                                         className="portfolioGraphGridLine"
                                                     />
                                                     <text x="4" y={tick.y + 4} className="portfolioGraphAxisLabel">
-                                                        {formatNumber(tick.value)}
+                                                        {formatChartAxisValue(tick.value)}
                                                     </text>
                                                 </g>
                                             ))}
@@ -1173,10 +1221,14 @@ const Portfolio = () => {
                         ) : (
                             <>
                                 <div className="portfolioGraphHeader">
-                                    <div className="portfolioGraphTitle">Stock details</div>
-                                    <div className="portfolioGraphSubtitle">
+                                    <div className="portfolioGraphTitle portfolioGraphTitleSelectedAsset">
+                                        {selectedHoldingSymbol && selectedHoldingTradePrice
+                                            ? `${formatCurrencyAmount(selectedHoldingTradePrice.value, selectedHoldingTradePrice.currencyCode)}`
+                                            : "Stock details"}
+                                    </div>
+                                    <div className="portfolioGraphSubtitle portfolioGraphSubtitleSelectedAsset">
                                         {selectedHoldingSymbol
-                                            ? `${selectedHoldingHistoryMeta.assetName || selectedHoldingHistoryMeta.symbol || selectedHoldingSymbol} | Value in ${selectedHoldingHistoryMeta.targetCurrency || selectedCurrency} | Range ${stockActiveRangeLabel}`
+                                            ? `${selectedHoldingIdentity?.assetName || selectedHoldingSymbol} | ${selectedHoldingIdentity?.symbol || selectedHoldingSymbol} | ${selectedHoldingIdentity?.stockExchange || "Unknown exchange"}`
                                             : "Click a stock name in Investments to load its history graph here."}
                                     </div>
                                 </div>
@@ -1234,7 +1286,7 @@ const Portfolio = () => {
                                                         className="portfolioGraphGridLine"
                                                     />
                                                     <text x="4" y={tick.y + 4} className="portfolioGraphAxisLabel">
-                                                        {formatNumber(tick.value)}
+                                                        {formatChartAxisValue(tick.value)}
                                                     </text>
                                                 </g>
                                             ))}
