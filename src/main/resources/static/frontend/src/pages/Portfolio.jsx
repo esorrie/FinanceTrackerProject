@@ -46,6 +46,48 @@ const subtractRangeFromDate = (date, amount, unit) => {
     return next;
 };
 
+const filterSeriesByRange = (series, historyBounds, activeRange, customRangeSpec) => {
+    if (!series.length || !historyBounds) return [];
+
+    if (activeRange === "MAX") {
+        return series;
+    }
+
+    let startTimestamp = historyBounds.earliestTimestamp;
+    const latestDate = new Date(historyBounds.latestTimestamp);
+
+    if (activeRange === "CUSTOM") {
+        if (!customRangeSpec) {
+            return series;
+        }
+        startTimestamp = subtractRangeFromDate(latestDate, customRangeSpec.amount, customRangeSpec.unit).getTime();
+    } else {
+        switch (activeRange) {
+            case "1D":
+                startTimestamp = subtractRangeFromDate(latestDate, 1, "D").getTime();
+                break;
+            case "1W":
+                startTimestamp = subtractRangeFromDate(latestDate, 1, "W").getTime();
+                break;
+            case "1M":
+                startTimestamp = subtractRangeFromDate(latestDate, 1, "M").getTime();
+                break;
+            case "3M":
+                startTimestamp = subtractRangeFromDate(latestDate, 3, "M").getTime();
+                break;
+            case "1Y":
+                startTimestamp = subtractRangeFromDate(latestDate, 1, "Y").getTime();
+                break;
+            default:
+                startTimestamp = historyBounds.earliestTimestamp;
+                break;
+        }
+    }
+
+    const filtered = series.filter(point => point.timestamp >= startTimestamp);
+    return filtered.length ? filtered : series.slice(-1);
+};
+
 const formatDateLabel = (isoDate) => {
     const timestamp = toTimestamp(isoDate);
     if (!Number.isFinite(timestamp)) return isoDate || "";
@@ -53,6 +95,15 @@ const formatDateLabel = (isoDate) => {
         month: "short",
         day: "numeric",
         year: "numeric"
+    }).format(new Date(timestamp));
+};
+
+const formatTimelineDateLabel = (isoDate) => {
+    const timestamp = toTimestamp(isoDate);
+    if (!Number.isFinite(timestamp)) return isoDate || "";
+    return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric"
     }).format(new Date(timestamp));
 };
 
@@ -71,6 +122,39 @@ const createLinePath = (series, scales) => {
             return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
         })
         .join(" ");
+};
+
+const createTimelineTicks = (series, scales, maxTicks = 6) => {
+    if (!series.length || !scales) return [];
+
+    const tickCount = Math.min(maxTicks, series.length);
+    const lastIndex = series.length - 1;
+    const indexSet = new Set([0, lastIndex]);
+    if (tickCount > 2 && lastIndex > 0) {
+        for (let i = 1; i < tickCount - 1; i += 1) {
+            indexSet.add(Math.round((i * lastIndex) / (tickCount - 1)));
+        }
+    }
+
+    const xRange = scales.maxTimestamp - scales.minTimestamp || 1;
+    const yRange = scales.maxValue - scales.minValue || 1;
+    const plotWidth = CHART_WIDTH - CHART_PADDING_X * 2;
+    const plotHeight = CHART_HEIGHT - CHART_PADDING_Y * 2;
+
+    return Array.from(indexSet)
+        .sort((a, b) => a - b)
+        .map((index) => {
+            const point = series[index];
+            const x = CHART_PADDING_X + ((point.timestamp - scales.minTimestamp) / xRange) * plotWidth;
+            const y = CHART_PADDING_Y + (1 - ((point.value - scales.minValue) / yRange)) * plotHeight;
+            return {
+                key: `${point.date || point.timestamp}-${index}`,
+                x,
+                y,
+                xPercent: (x / CHART_WIDTH) * 100,
+                label: formatTimelineDateLabel(point.date)
+            };
+        });
 };
 
 const getErrorMessage = (errorLike, fallback) => {
@@ -93,11 +177,26 @@ const Portfolio = () => {
     const [isHistoryLoading, setIsHistoryLoading] = useState(true);
     const [error, setError] = useState("");
     const [historyError, setHistoryError] = useState("");
-    const [activeRange, setActiveRange] = useState("1M");
-    const [isCustomInputOpen, setIsCustomInputOpen] = useState(false);
-    const [customRangeInput, setCustomRangeInput] = useState("");
-    const [customRangeSpec, setCustomRangeSpec] = useState(null);
-    const [customRangeError, setCustomRangeError] = useState("");
+    const [portfolioActiveRange, setPortfolioActiveRange] = useState("1M");
+    const [isPortfolioCustomInputOpen, setIsPortfolioCustomInputOpen] = useState(false);
+    const [portfolioCustomRangeInput, setPortfolioCustomRangeInput] = useState("");
+    const [portfolioCustomRangeSpec, setPortfolioCustomRangeSpec] = useState(null);
+    const [portfolioCustomRangeError, setPortfolioCustomRangeError] = useState("");
+    const [stockActiveRange, setStockActiveRange] = useState("1M");
+    const [isStockCustomInputOpen, setIsStockCustomInputOpen] = useState(false);
+    const [stockCustomRangeInput, setStockCustomRangeInput] = useState("");
+    const [stockCustomRangeSpec, setStockCustomRangeSpec] = useState(null);
+    const [stockCustomRangeError, setStockCustomRangeError] = useState("");
+    const [selectedHoldingSymbol, setSelectedHoldingSymbol] = useState("");
+    const [selectedHoldingHistoryPoints, setSelectedHoldingHistoryPoints] = useState([]);
+    const [selectedHoldingHistoryMeta, setSelectedHoldingHistoryMeta] = useState({
+        symbol: "",
+        assetName: "",
+        targetCurrency: ""
+    });
+    const [isSelectedHoldingHistoryLoading, setIsSelectedHoldingHistoryLoading] = useState(false);
+    const [selectedHoldingHistoryError, setSelectedHoldingHistoryError] = useState("");
+    const [isPortfolioFullscreen, setIsPortfolioFullscreen] = useState(false);
 
     const username = useMemo(() => user?.username || "demo", [user]);
 
@@ -109,11 +208,11 @@ const Portfolio = () => {
             setIsHistoryLoading(true);
             setError("");
             setHistoryError("");
-            setActiveRange("1M");
-            setIsCustomInputOpen(false);
-            setCustomRangeInput("");
-            setCustomRangeSpec(null);
-            setCustomRangeError("");
+            setPortfolioActiveRange("1M");
+            setIsPortfolioCustomInputOpen(false);
+            setPortfolioCustomRangeInput("");
+            setPortfolioCustomRangeSpec(null);
+            setPortfolioCustomRangeError("");
 
             const encodedUser = encodeURIComponent(username);
             const holdingsRequest = fetchJson(
@@ -169,6 +268,92 @@ const Portfolio = () => {
             mounted = false;
         };
     }, [username, selectedCurrency]);
+
+    useEffect(() => {
+        if (!selectedHoldingSymbol) return;
+
+        const hasSelectedHolding = holdings.some(
+            (holding) => holding?.symbol === selectedHoldingSymbol
+        );
+        if (!hasSelectedHolding) {
+            setSelectedHoldingSymbol("");
+            setSelectedHoldingHistoryPoints([]);
+            setSelectedHoldingHistoryMeta({
+                symbol: "",
+                assetName: "",
+                targetCurrency: ""
+            });
+            setSelectedHoldingHistoryError("");
+            setIsSelectedHoldingHistoryLoading(false);
+        }
+    }, [holdings, selectedHoldingSymbol]);
+
+    useEffect(() => {
+        if (selectedHoldingSymbol && isPortfolioFullscreen) {
+            setIsPortfolioFullscreen(false);
+        }
+    }, [selectedHoldingSymbol, isPortfolioFullscreen]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        if (!selectedHoldingSymbol) {
+            setSelectedHoldingHistoryPoints([]);
+            setSelectedHoldingHistoryMeta({
+                symbol: "",
+                assetName: "",
+                targetCurrency: ""
+            });
+            setSelectedHoldingHistoryError("");
+            setIsSelectedHoldingHistoryLoading(false);
+            return () => {
+                mounted = false;
+            };
+        }
+
+        const fetchSelectedHoldingHistory = async () => {
+            setIsSelectedHoldingHistoryLoading(true);
+            setSelectedHoldingHistoryError("");
+
+            try {
+                const encodedUser = encodeURIComponent(username);
+                const encodedSymbol = encodeURIComponent(selectedHoldingSymbol);
+                const selectedHoldingHistory = await fetchJson(
+                    `/api/holdings/history/asset?username=${encodedUser}&symbol=${encodedSymbol}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d`,
+                    "Failed to load stock history"
+                );
+
+                if (!mounted) return;
+
+                setSelectedHoldingHistoryPoints(Array.isArray(selectedHoldingHistory.points) ? selectedHoldingHistory.points : []);
+                setSelectedHoldingHistoryMeta({
+                    symbol: selectedHoldingHistory.symbol || selectedHoldingSymbol,
+                    assetName: selectedHoldingHistory.assetName || selectedHoldingSymbol,
+                    targetCurrency: selectedHoldingHistory.targetCurrency || selectedCurrency
+                });
+            } catch (errorLike) {
+                if (!mounted) return;
+                setSelectedHoldingHistoryPoints([]);
+                setSelectedHoldingHistoryMeta({
+                    symbol: selectedHoldingSymbol,
+                    assetName: selectedHoldingSymbol,
+                    targetCurrency: selectedCurrency
+                });
+                setSelectedHoldingHistoryError(
+                    getErrorMessage(errorLike, "Unable to load selected stock history.")
+                );
+            } finally {
+                if (mounted) {
+                    setIsSelectedHoldingHistoryLoading(false);
+                }
+            }
+        };
+
+        fetchSelectedHoldingHistory();
+        return () => {
+            mounted = false;
+        };
+    }, [username, selectedCurrency, selectedHoldingSymbol]);
 
     const formatNumber = (value) => {
         const numberValue = Number(value);
@@ -291,77 +476,44 @@ const Portfolio = () => {
         };
     }, [portfolioSeries]);
 
-    const maxRangeStartLabel = useMemo(() => (
+    const maxPortfolioRangeStartLabel = useMemo(() => (
         portfolioSeries.length ? formatDateLabel(portfolioSeries[0].date) : ""
     ), [portfolioSeries]);
 
     const filteredPortfolioSeries = useMemo(() => {
-        if (!portfolioSeries.length || !historyBounds) return [];
+        return filterSeriesByRange(
+            portfolioSeries,
+            historyBounds,
+            portfolioActiveRange,
+            portfolioCustomRangeSpec
+        );
+    }, [portfolioActiveRange, portfolioCustomRangeSpec, historyBounds, portfolioSeries]);
 
-        if (activeRange === "MAX") {
-            return portfolioSeries;
-        }
-
-        let startTimestamp = historyBounds.earliestTimestamp;
-        const latestDate = new Date(historyBounds.latestTimestamp);
-
-        if (activeRange === "CUSTOM") {
-            if (!customRangeSpec) {
-                return portfolioSeries;
-            }
-            startTimestamp = subtractRangeFromDate(latestDate, customRangeSpec.amount, customRangeSpec.unit).getTime();
-        } else {
-            switch (activeRange) {
-                case "1D":
-                    startTimestamp = subtractRangeFromDate(latestDate, 1, "D").getTime();
-                    break;
-                case "1W":
-                    startTimestamp = subtractRangeFromDate(latestDate, 1, "W").getTime();
-                    break;
-                case "1M":
-                    startTimestamp = subtractRangeFromDate(latestDate, 1, "M").getTime();
-                    break;
-                case "3M":
-                    startTimestamp = subtractRangeFromDate(latestDate, 3, "M").getTime();
-                    break;
-                case "1Y":
-                    startTimestamp = subtractRangeFromDate(latestDate, 1, "Y").getTime();
-                    break;
-                default:
-                    startTimestamp = historyBounds.earliestTimestamp;
-                    break;
-            }
-        }
-
-        const filtered = portfolioSeries.filter(point => point.timestamp >= startTimestamp);
-        return filtered.length ? filtered : portfolioSeries.slice(-1);
-    }, [activeRange, customRangeSpec, historyBounds, portfolioSeries]);
-
-    const handleRangeClick = (rangeLabel) => {
-        setCustomRangeError("");
+    const handlePortfolioRangeClick = (rangeLabel) => {
+        setPortfolioCustomRangeError("");
         if (rangeLabel === "OPTIONAL") {
-            setIsCustomInputOpen(true);
+            setIsPortfolioCustomInputOpen(true);
             return;
         }
 
-        setActiveRange(rangeLabel);
-        setIsCustomInputOpen(false);
+        setPortfolioActiveRange(rangeLabel);
+        setIsPortfolioCustomInputOpen(false);
     };
 
-    const handleApplyCustomRange = () => {
+    const handleApplyPortfolioCustomRange = () => {
         if (!historyBounds) return;
 
-        const normalized = customRangeInput.trim().toUpperCase();
+        const normalized = portfolioCustomRangeInput.trim().toUpperCase();
         const match = normalized.match(CUSTOM_RANGE_PATTERN);
         if (!match) {
-            setCustomRangeError("Use format like 10D, 6M, or 2Y.");
+            setPortfolioCustomRangeError("Use format like 10D, 6M, or 2Y.");
             return;
         }
 
         const amount = Number.parseInt(match[1], 10);
         const unit = match[2].toUpperCase();
         if (!Number.isFinite(amount) || amount <= 0) {
-            setCustomRangeError("Custom range must be greater than 0.");
+            setPortfolioCustomRangeError("Custom range must be greater than 0.");
             return;
         }
 
@@ -372,21 +524,23 @@ const Portfolio = () => {
         ).getTime();
 
         if (startTimestamp < historyBounds.earliestTimestamp) {
-            setCustomRangeError(`Custom range exceeds MAX. Oldest available point starts on ${maxRangeStartLabel}.`);
+            setPortfolioCustomRangeError(
+                `Custom range exceeds MAX. Oldest available point starts on ${maxPortfolioRangeStartLabel}.`
+            );
             return;
         }
 
-        setCustomRangeSpec({ amount, unit, label: `${amount}${unit}` });
-        setActiveRange("CUSTOM");
-        setCustomRangeError("");
+        setPortfolioCustomRangeSpec({ amount, unit, label: `${amount}${unit}` });
+        setPortfolioActiveRange("CUSTOM");
+        setPortfolioCustomRangeError("");
     };
 
-    const activeRangeLabel = useMemo(() => {
-        if (activeRange === "CUSTOM") {
-            return customRangeSpec?.label || "OPTIONAL";
+    const portfolioActiveRangeLabel = useMemo(() => {
+        if (portfolioActiveRange === "CUSTOM") {
+            return portfolioCustomRangeSpec?.label || "OPTIONAL";
         }
-        return activeRange;
-    }, [activeRange, customRangeSpec]);
+        return portfolioActiveRange;
+    }, [portfolioActiveRange, portfolioCustomRangeSpec]);
 
     const timeframePerformance = useMemo(() => {
         if (!filteredPortfolioSeries.length) {
@@ -484,6 +638,202 @@ const Portfolio = () => {
         };
     }, [filteredPortfolioSeries]);
 
+    const portfolioTimelineTicks = useMemo(() => (
+        createTimelineTicks(filteredPortfolioSeries, chartModel?.scales)
+    ), [filteredPortfolioSeries, chartModel]);
+
+    const selectedHoldingSeries = useMemo(() => (
+        (Array.isArray(selectedHoldingHistoryPoints) ? selectedHoldingHistoryPoints : [])
+            .map(point => ({
+                date: point?.date,
+                timestamp: toTimestamp(point?.date),
+                value: Number(point?.holdingValueTarget)
+            }))
+            .filter(point => Number.isFinite(point.timestamp) && Number.isFinite(point.value) && point.value >= 0)
+            .sort((a, b) => a.timestamp - b.timestamp)
+    ), [selectedHoldingHistoryPoints]);
+
+    const selectedHoldingHistoryBounds = useMemo(() => {
+        if (!selectedHoldingSeries.length) return null;
+        return {
+            earliestTimestamp: selectedHoldingSeries[0].timestamp,
+            latestTimestamp: selectedHoldingSeries[selectedHoldingSeries.length - 1].timestamp
+        };
+    }, [selectedHoldingSeries]);
+
+    const maxStockRangeStartLabel = useMemo(() => (
+        selectedHoldingSeries.length ? formatDateLabel(selectedHoldingSeries[0].date) : ""
+    ), [selectedHoldingSeries]);
+
+    const filteredSelectedHoldingSeries = useMemo(() => (
+        filterSeriesByRange(
+            selectedHoldingSeries,
+            selectedHoldingHistoryBounds,
+            stockActiveRange,
+            stockCustomRangeSpec
+        )
+    ), [selectedHoldingHistoryBounds, selectedHoldingSeries, stockActiveRange, stockCustomRangeSpec]);
+
+    const handleStockRangeClick = (rangeLabel) => {
+        setStockCustomRangeError("");
+        if (rangeLabel === "OPTIONAL") {
+            setIsStockCustomInputOpen(true);
+            return;
+        }
+
+        setStockActiveRange(rangeLabel);
+        setIsStockCustomInputOpen(false);
+    };
+
+    const handleApplyStockCustomRange = () => {
+        if (!selectedHoldingHistoryBounds) return;
+
+        const normalized = stockCustomRangeInput.trim().toUpperCase();
+        const match = normalized.match(CUSTOM_RANGE_PATTERN);
+        if (!match) {
+            setStockCustomRangeError("Use format like 10D, 6M, or 2Y.");
+            return;
+        }
+
+        const amount = Number.parseInt(match[1], 10);
+        const unit = match[2].toUpperCase();
+        if (!Number.isFinite(amount) || amount <= 0) {
+            setStockCustomRangeError("Custom range must be greater than 0.");
+            return;
+        }
+
+        const startTimestamp = subtractRangeFromDate(
+            new Date(selectedHoldingHistoryBounds.latestTimestamp),
+            amount,
+            unit
+        ).getTime();
+
+        if (startTimestamp < selectedHoldingHistoryBounds.earliestTimestamp) {
+            setStockCustomRangeError(
+                `Custom range exceeds MAX. Oldest available point starts on ${maxStockRangeStartLabel}.`
+            );
+            return;
+        }
+
+        setStockCustomRangeSpec({ amount, unit, label: `${amount}${unit}` });
+        setStockActiveRange("CUSTOM");
+        setStockCustomRangeError("");
+    };
+
+    const stockActiveRangeLabel = useMemo(() => {
+        if (stockActiveRange === "CUSTOM") {
+            return stockCustomRangeSpec?.label || "OPTIONAL";
+        }
+        return stockActiveRange;
+    }, [stockActiveRange, stockCustomRangeSpec]);
+
+    const selectedHoldingChartModel = useMemo(() => {
+        if (!filteredSelectedHoldingSeries.length) return null;
+
+        const timestamps = filteredSelectedHoldingSeries.map(point => point.timestamp);
+        let minTimestamp = Math.min(...timestamps);
+        let maxTimestamp = Math.max(...timestamps);
+        if (minTimestamp === maxTimestamp) {
+            maxTimestamp = minTimestamp + 1;
+        }
+
+        const values = filteredSelectedHoldingSeries.map(point => point.value);
+        let minValue = Math.min(...values);
+        let maxValue = Math.max(...values);
+        if (minValue === maxValue) {
+            minValue -= 1;
+            maxValue += 1;
+        } else {
+            const padding = (maxValue - minValue) * 0.1;
+            minValue -= padding;
+            maxValue += padding;
+        }
+
+        const scales = { minTimestamp, maxTimestamp, minValue, maxValue };
+        return {
+            scales,
+            holdingPath: createLinePath(filteredSelectedHoldingSeries, scales)
+        };
+    }, [filteredSelectedHoldingSeries]);
+
+    const selectedHoldingYAxisTicks = useMemo(() => {
+        if (!selectedHoldingChartModel) return [];
+        const { minValue, maxValue } = selectedHoldingChartModel.scales;
+        const plotHeight = CHART_HEIGHT - CHART_PADDING_Y * 2;
+
+        return Array.from({ length: 5 }, (_, index) => {
+            const ratio = index / 4;
+            return {
+                y: CHART_PADDING_Y + ratio * plotHeight,
+                value: maxValue - ratio * (maxValue - minValue)
+            };
+        });
+    }, [selectedHoldingChartModel]);
+
+    const selectedHoldingTimelineTicks = useMemo(() => (
+        createTimelineTicks(filteredSelectedHoldingSeries, selectedHoldingChartModel?.scales)
+    ), [filteredSelectedHoldingSeries, selectedHoldingChartModel]);
+
+    const renderRangeControls = ({
+        ariaLabel,
+        activeRange,
+        isCustomInputOpen,
+        customRangeInput,
+        customRangeError,
+        onRangeClick,
+        onCustomInputChange,
+        onApplyCustomRange
+    }) => (
+        <div className="portfolioGraphControls">
+            <div className="portfolioRangeButtons" role="group" aria-label={ariaLabel}>
+                {HISTORY_RANGE_OPTIONS.map((rangeLabel) => {
+                    const isActive = rangeLabel === "OPTIONAL"
+                        ? activeRange === "CUSTOM" || isCustomInputOpen
+                        : activeRange === rangeLabel;
+                    return (
+                        <button
+                            type="button"
+                            key={rangeLabel}
+                            className={`portfolioRangeButton${isActive ? " active" : ""}`}
+                            onClick={() => onRangeClick(rangeLabel)}
+                        >
+                            {rangeLabel}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {isCustomInputOpen && (
+                <div className="portfolioRangeCustom">
+                    <input
+                        type="text"
+                        value={customRangeInput}
+                        onChange={(event) => onCustomInputChange(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                                onApplyCustomRange();
+                            }
+                        }}
+                        className="portfolioRangeCustomInput"
+                        placeholder="e.g. 10D, 6M, 2Y"
+                        aria-label="Custom time range"
+                    />
+                    <button
+                        type="button"
+                        className="portfolioRangeCustomApply"
+                        onClick={onApplyCustomRange}
+                    >
+                        Apply
+                    </button>
+                </div>
+            )}
+
+            {customRangeError && (
+                <div className="portfolioGraphNote">{customRangeError}</div>
+            )}
+        </div>
+    );
+
     return (
         <>
             <div className="portfolioMainContainer">
@@ -522,7 +872,7 @@ const Portfolio = () => {
                             <span className="portfolioPerformanceArrow" aria-hidden="true">{performanceArrow}</span>
                             <span>{formatSignedCurrencyAmount(timeframePerformance.changeAmount, activeCurrencyCode)}</span>
                             <span>({formatSignedPercent(timeframePerformance.changePercent)})</span>
-                            <span className="portfolioPerformanceRange">{activeRangeLabel}</span>
+                            <span className="portfolioPerformanceRange">{portfolioActiveRangeLabel}</span>
                         </span>
                     </div>
 
@@ -543,11 +893,32 @@ const Portfolio = () => {
 
                                 {!isHistoryLoading && !historyError && chartModel && (
                                     <>
-                                        <div className="portfolioGraphHeader">
-                                            <div className="portfolioGraphTitle">Portfolio history</div>
-                                            <div className="portfolioGraphSubtitle">
-                                                Value in {portfolioSummary.targetCurrency} | Range {activeRangeLabel}
+                                        <div className="portfolioGraphHeaderRow">
+                                            <div className="portfolioGraphHeader">
+                                                <div className="portfolioGraphTitle">Portfolio history</div>
+                                                <div className="portfolioGraphSubtitle">
+                                                    Value in {portfolioSummary.targetCurrency} | Range {portfolioActiveRangeLabel}
+                                                </div>
                                             </div>
+                                            <button
+                                                type="button"
+                                                className="portfolioGraphExpandButton"
+                                                onClick={() => setIsPortfolioFullscreen(true)}
+                                                disabled={isPortfolioFullscreen}
+                                                aria-label="Open portfolio graph fullscreen"
+                                                title="Open fullscreen"
+                                            >
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    className="portfolioGraphControlIcon"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M7 14H5v5h5v-2H7v-3Zm0-4h3V8H7V5H5v5Zm10 7h-3v2h5v-5h-2v3Zm-3-12v2h3v3h2V5h-5Z"
+                                                        fill="currentColor"
+                                                    />
+                                                </svg>
+                                            </button>
                                         </div>
 
                                         <div className="portfolioGraphLegend">
@@ -592,54 +963,16 @@ const Portfolio = () => {
                                             <span>{graphDateRange.end}</span>
                                         </div>
 
-                                        <div className="portfolioGraphControls">
-                                            <div className="portfolioRangeButtons" role="group" aria-label="Portfolio history range">
-                                                {HISTORY_RANGE_OPTIONS.map((rangeLabel) => {
-                                                    const isActive = rangeLabel === "OPTIONAL"
-                                                        ? activeRange === "CUSTOM" || isCustomInputOpen
-                                                        : activeRange === rangeLabel;
-                                                    return (
-                                                        <button
-                                                            type="button"
-                                                            key={rangeLabel}
-                                                            className={`portfolioRangeButton${isActive ? " active" : ""}`}
-                                                            onClick={() => handleRangeClick(rangeLabel)}
-                                                        >
-                                                            {rangeLabel}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-
-                                            {isCustomInputOpen && (
-                                                <div className="portfolioRangeCustom">
-                                                    <input
-                                                        type="text"
-                                                        value={customRangeInput}
-                                                        onChange={(event) => setCustomRangeInput(event.target.value)}
-                                                        onKeyDown={(event) => {
-                                                            if (event.key === "Enter") {
-                                                                handleApplyCustomRange();
-                                                            }
-                                                        }}
-                                                        className="portfolioRangeCustomInput"
-                                                        placeholder="e.g. 10D, 6M, 2Y"
-                                                        aria-label="Custom time range"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        className="portfolioRangeCustomApply"
-                                                        onClick={handleApplyCustomRange}
-                                                    >
-                                                        Apply
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {customRangeError && (
-                                            <div className="portfolioGraphNote">{customRangeError}</div>
-                                        )}
+                                        {renderRangeControls({
+                                            ariaLabel: "Portfolio history range",
+                                            activeRange: portfolioActiveRange,
+                                            isCustomInputOpen: isPortfolioCustomInputOpen,
+                                            customRangeInput: portfolioCustomRangeInput,
+                                            customRangeError: portfolioCustomRangeError,
+                                            onRangeClick: handlePortfolioRangeClick,
+                                            onCustomInputChange: setPortfolioCustomRangeInput,
+                                            onApplyCustomRange: handleApplyPortfolioCustomRange
+                                        })}
                                     </>
                                 )}
                             </div>
@@ -661,12 +994,24 @@ const Portfolio = () => {
                                 </div>
                             )}
 
-                            {!isLoading && !error && sortedHoldings.map((holding) => (
-                                <div className="portfolioAssetsList" key={holding.holdingId}>
-                                    <strong>{holding.symbol}</strong> -
-                                    {" "}{formatCurrencyAmount(holding.marketValueTarget, holding.targetCurrency)}
-                                </div>
-                            ))}
+                            {!isLoading && !error && sortedHoldings.map((holding) => {
+                                const symbolValue = holding.symbol || "";
+                                const symbolLabel = symbolValue || holding.assetName || "Unknown";
+                                return (
+                                    <div className="portfolioAssetsList" key={holding.holdingId}>
+                                        <button
+                                            type="button"
+                                            className={`portfolioAssetSymbolButton${selectedHoldingSymbol === symbolValue ? " active" : ""}`}
+                                            onClick={() => setSelectedHoldingSymbol(symbolValue)}
+                                            disabled={!symbolValue}
+                                        >
+                                            {symbolLabel}
+                                        </button>{" "}
+                                        -
+                                        {" "}{formatCurrencyAmount(holding.marketValueTarget, holding.targetCurrency)}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -701,7 +1046,241 @@ const Portfolio = () => {
                 </div>
 
                 <div className="portfolioDataContainer">
-                    <div className="portfolioData">This is where the portfolio details will be displayed.</div>
+                    <div className={`portfolioData${isPortfolioFullscreen ? " portfolioDataFullscreen" : ""}`}>
+                        {isPortfolioFullscreen ? (
+                            <>
+                                <div className="portfolioGraphHeaderRow">
+                                    <div className="portfolioGraphHeader">
+                                        <div className="portfolioGraphTitle">Portfolio history</div>
+                                        <div className="portfolioGraphSubtitle">
+                                            Expanded view | Value in {portfolioSummary.targetCurrency} | Range {portfolioActiveRangeLabel}
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="portfolioGraphExitButton"
+                                        onClick={() => setIsPortfolioFullscreen(false)}
+                                        aria-label="Exit portfolio graph fullscreen"
+                                        title="Exit fullscreen"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            className="portfolioGraphControlIcon"
+                                            aria-hidden="true"
+                                        >
+                                            <path
+                                                d="M5 16h3v3h2v-5H5v2Zm3-8H5v2h5V5H8v3Zm8 11h-2v-3h-2v5h5v-5h-2v3Zm-2-11V5h-2v5h5V8h-3Z"
+                                                fill="currentColor"
+                                            />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                {isHistoryLoading && (
+                                    <div className="portfolioGraphStatus">Loading portfolio graph...</div>
+                                )}
+
+                                {!isHistoryLoading && historyError && (
+                                    <div className="portfolioGraphStatus">{historyError}</div>
+                                )}
+
+                                {!isHistoryLoading && !historyError && !chartModel && (
+                                    <div className="portfolioGraphStatus">No portfolio history is available yet.</div>
+                                )}
+
+                                {!isHistoryLoading && !historyError && chartModel && (
+                                    <>
+                                        <div className="portfolioGraphLegend">
+                                            <div className="portfolioGraphLegendItem">
+                                                <span className="portfolioGraphLegendSwatch portfolioGraphLegendSwatchPortfolio"></span>
+                                                Portfolio
+                                            </div>
+                                        </div>
+
+                                        <svg
+                                            className="portfolioGraphSvg"
+                                            viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                                            preserveAspectRatio="none"
+                                            role="img"
+                                            aria-label="Expanded portfolio history"
+                                        >
+                                            {portfolioTimelineTicks.map((tick) => (
+                                                <line
+                                                    key={`portfolio-xgrid-${tick.key}`}
+                                                    x1={tick.x}
+                                                    y1={CHART_PADDING_Y}
+                                                    x2={tick.x}
+                                                    y2={CHART_HEIGHT - CHART_PADDING_Y}
+                                                    className="portfolioGraphXGridLine"
+                                                />
+                                            ))}
+
+                                            {yAxisTicks.map((tick, index) => (
+                                                <g key={`portfolio-expanded-tick-${index}`}>
+                                                    <line
+                                                        x1={CHART_PADDING_X}
+                                                        y1={tick.y}
+                                                        x2={CHART_WIDTH - CHART_PADDING_X}
+                                                        y2={tick.y}
+                                                        className="portfolioGraphGridLine"
+                                                    />
+                                                    <text x="4" y={tick.y + 4} className="portfolioGraphAxisLabel">
+                                                        {formatNumber(tick.value)}
+                                                    </text>
+                                                </g>
+                                            ))}
+
+                                            {chartModel.portfolioPath && (
+                                                <path
+                                                    d={chartModel.portfolioPath}
+                                                    className="portfolioGraphLine portfolioGraphLinePortfolio"
+                                                />
+                                            )}
+                                        </svg>
+
+                                        <div className="portfolioGraphTimeline" aria-hidden="true">
+                                            {portfolioTimelineTicks.map((tick, index) => {
+                                                const edgeClass = index === 0
+                                                    ? " first"
+                                                    : index === portfolioTimelineTicks.length - 1
+                                                        ? " last"
+                                                        : "";
+                                                return (
+                                                    <div
+                                                        key={`portfolio-timeline-${tick.key}`}
+                                                        className={`portfolioGraphTimelineTick${edgeClass}`}
+                                                        style={{ left: `${tick.xPercent}%` }}
+                                                    >
+                                                        <span className="portfolioGraphTimelineLabel">{tick.label}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {renderRangeControls({
+                                            ariaLabel: "Portfolio history range",
+                                            activeRange: portfolioActiveRange,
+                                            isCustomInputOpen: isPortfolioCustomInputOpen,
+                                            customRangeInput: portfolioCustomRangeInput,
+                                            customRangeError: portfolioCustomRangeError,
+                                            onRangeClick: handlePortfolioRangeClick,
+                                            onCustomInputChange: setPortfolioCustomRangeInput,
+                                            onApplyCustomRange: handleApplyPortfolioCustomRange
+                                        })}
+                                    </>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <div className="portfolioGraphHeader">
+                                    <div className="portfolioGraphTitle">Stock details</div>
+                                    <div className="portfolioGraphSubtitle">
+                                        {selectedHoldingSymbol
+                                            ? `${selectedHoldingHistoryMeta.assetName || selectedHoldingHistoryMeta.symbol || selectedHoldingSymbol} | Value in ${selectedHoldingHistoryMeta.targetCurrency || selectedCurrency} | Range ${stockActiveRangeLabel}`
+                                            : "Click a stock name in Investments to load its history graph here."}
+                                    </div>
+                                </div>
+
+                                {!selectedHoldingSymbol && (
+                                    <div className="portfolioGraphStatus">Select a stock name to view history.</div>
+                                )}
+
+                                {selectedHoldingSymbol && isSelectedHoldingHistoryLoading && (
+                                    <div className="portfolioGraphStatus">Loading {selectedHoldingSymbol} history...</div>
+                                )}
+
+                                {selectedHoldingSymbol && !isSelectedHoldingHistoryLoading && selectedHoldingHistoryError && (
+                                    <div className="portfolioGraphStatus">{selectedHoldingHistoryError}</div>
+                                )}
+
+                                {selectedHoldingSymbol && !isSelectedHoldingHistoryLoading && !selectedHoldingHistoryError && !selectedHoldingChartModel && (
+                                    <div className="portfolioGraphStatus">No history is available for {selectedHoldingSymbol}.</div>
+                                )}
+
+                                {selectedHoldingSymbol && !isSelectedHoldingHistoryLoading && !selectedHoldingHistoryError && selectedHoldingChartModel && (
+                                    <>
+                                        <div className="portfolioGraphLegend">
+                                            <div className="portfolioGraphLegendItem">
+                                                <span className="portfolioGraphLegendSwatch portfolioGraphLegendSwatchHolding"></span>
+                                                {selectedHoldingHistoryMeta.symbol || selectedHoldingSymbol}
+                                            </div>
+                                        </div>
+
+                                        <svg
+                                            className="portfolioGraphSvg"
+                                            viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                                            preserveAspectRatio="none"
+                                            role="img"
+                                            aria-label={`${selectedHoldingHistoryMeta.symbol || selectedHoldingSymbol} history`}
+                                        >
+                                            {selectedHoldingTimelineTicks.map((tick) => (
+                                                <line
+                                                    key={`selected-xgrid-${tick.key}`}
+                                                    x1={tick.x}
+                                                    y1={CHART_PADDING_Y}
+                                                    x2={tick.x}
+                                                    y2={CHART_HEIGHT - CHART_PADDING_Y}
+                                                    className="portfolioGraphXGridLine"
+                                                />
+                                            ))}
+
+                                            {selectedHoldingYAxisTicks.map((tick, index) => (
+                                                <g key={`selected-tick-${index}`}>
+                                                    <line
+                                                        x1={CHART_PADDING_X}
+                                                        y1={tick.y}
+                                                        x2={CHART_WIDTH - CHART_PADDING_X}
+                                                        y2={tick.y}
+                                                        className="portfolioGraphGridLine"
+                                                    />
+                                                    <text x="4" y={tick.y + 4} className="portfolioGraphAxisLabel">
+                                                        {formatNumber(tick.value)}
+                                                    </text>
+                                                </g>
+                                            ))}
+
+                                            {selectedHoldingChartModel.holdingPath && (
+                                                <path
+                                                    d={selectedHoldingChartModel.holdingPath}
+                                                    className="portfolioGraphLine portfolioGraphLineHolding"
+                                                />
+                                            )}
+                                        </svg>
+
+                                        <div className="portfolioGraphTimeline" aria-hidden="true">
+                                            {selectedHoldingTimelineTicks.map((tick, index) => {
+                                                const edgeClass = index === 0
+                                                    ? " first"
+                                                    : index === selectedHoldingTimelineTicks.length - 1
+                                                        ? " last"
+                                                        : "";
+                                                return (
+                                                    <div
+                                                        key={`selected-timeline-${tick.key}`}
+                                                        className={`portfolioGraphTimelineTick${edgeClass}`}
+                                                        style={{ left: `${tick.xPercent}%` }}
+                                                    >
+                                                        <span className="portfolioGraphTimelineLabel">{tick.label}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {renderRangeControls({
+                                            ariaLabel: "Stock history range",
+                                            activeRange: stockActiveRange,
+                                            isCustomInputOpen: isStockCustomInputOpen,
+                                            customRangeInput: stockCustomRangeInput,
+                                            customRangeError: stockCustomRangeError,
+                                            onRangeClick: handleStockRangeClick,
+                                            onCustomInputChange: setStockCustomRangeInput,
+                                            onApplyCustomRange: handleApplyStockCustomRange
+                                        })}
+                                    </>
+                                )}
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </>
