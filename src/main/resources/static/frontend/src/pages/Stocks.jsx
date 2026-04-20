@@ -48,7 +48,7 @@ const Stocks = () => {
                                     </div>
                                 ))}
                             </div> */}
-                            <div> Asset 1 </div>
+                            {/* <div> Asset 1 </div> */}
                         
                         </div>
                     {/* )} */}
