@@ -196,6 +196,76 @@ public class HoldingService {
     }
 
     @Transactional
+    public HoldingLastPriceRefreshSummary refreshAllHoldingLastPrices() {
+        List<Holding> holdings = holdingRepository.findAll();
+        int totalHoldings = holdings.size();
+        if (totalHoldings == 0) {
+            return new HoldingLastPriceRefreshSummary(0, 0, 0, 0, 0);
+        }
+
+        List<String> symbols = holdings.stream()
+                .map(holding -> holding.getAsset() == null ? null : holding.getAsset().getAssetSymbol())
+                .filter(StringUtils::hasText)
+                .map(symbol -> symbol.trim().toUpperCase(Locale.ROOT))
+                .distinct()
+                .toList();
+
+        if (symbols.isEmpty()) {
+            return new HoldingLastPriceRefreshSummary(totalHoldings, 0, 0, 0, totalHoldings);
+        }
+
+        List<YahooQuote> quotes = yahooFinanceClient.fetchQuotes(symbols);
+        Map<String, BigDecimal> latestPriceBySymbol = new HashMap<>();
+        for (YahooQuote quote : quotes) {
+            if (quote == null || !StringUtils.hasText(quote.symbol())) {
+                continue;
+            }
+            BigDecimal latestPrice = resolveLatestQuotePrice(quote);
+            if (!isValidRate(latestPrice)) {
+                continue;
+            }
+            latestPriceBySymbol.put(quote.symbol().trim().toUpperCase(Locale.ROOT), latestPrice);
+        }
+
+        int holdingsUpdated = 0;
+        int holdingsMissingQuote = 0;
+        List<Holding> changedHoldings = new ArrayList<>();
+
+        for (Holding holding : holdings) {
+            String symbol = holding.getAsset() == null ? null : holding.getAsset().getAssetSymbol();
+            if (!StringUtils.hasText(symbol)) {
+                holdingsMissingQuote++;
+                continue;
+            }
+
+            BigDecimal latestPrice = latestPriceBySymbol.get(symbol.trim().toUpperCase(Locale.ROOT));
+            if (!isValidRate(latestPrice)) {
+                holdingsMissingQuote++;
+                continue;
+            }
+
+            BigDecimal normalizedLatestPrice = latestPrice.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            if (!equalsDecimal(holding.getLastPrice(), normalizedLatestPrice)) {
+                holding.setLastPrice(normalizedLatestPrice);
+                changedHoldings.add(holding);
+                holdingsUpdated++;
+            }
+        }
+
+        if (!changedHoldings.isEmpty()) {
+            holdingRepository.saveAll(changedHoldings);
+        }
+
+        return new HoldingLastPriceRefreshSummary(
+                totalHoldings,
+                symbols.size(),
+                quotes.size(),
+                holdingsUpdated,
+                holdingsMissingQuote
+        );
+    }
+
+    @Transactional
     public HoldingsInCurrencyResponse getHoldingsInCurrency(String username, String requestedCurrencyCode) {
         String normalizedUsername = normalizeUsername(username);
 
@@ -876,6 +946,19 @@ public class HoldingService {
         return currentPriceSource;
     }
 
+    private BigDecimal resolveLatestQuotePrice(YahooQuote quote) {
+        if (quote == null) {
+            return null;
+        }
+        if (isValidRate(quote.regularMarketPrice())) {
+            return quote.regularMarketPrice();
+        }
+        if (isValidRate(quote.regularMarketPreviousClose())) {
+            return quote.regularMarketPreviousClose();
+        }
+        return null;
+    }
+
     private BigDecimal calculatePercentChange(BigDecimal change, BigDecimal base) {
         if (base == null || base.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO.setScale(PERCENT_SCALE, RoundingMode.HALF_UP);
@@ -1152,6 +1235,15 @@ public class HoldingService {
             LocalDate startDate,
             BigDecimal units,
             NavigableMap<LocalDate, BigDecimal> closePriceTargetByDate
+    ) {
+    }
+
+    public record HoldingLastPriceRefreshSummary(
+            int totalHoldings,
+            int symbolsRequested,
+            int quotesReturned,
+            int holdingsUpdated,
+            int holdingsMissingQuote
     ) {
     }
 }
