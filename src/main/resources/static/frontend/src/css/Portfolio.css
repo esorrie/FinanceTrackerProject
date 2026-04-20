@@ -368,6 +368,53 @@
     line-height: 1.35;
 }
 
+.holdingSnapshotGrid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.holdingSnapshotCard {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    padding: 9px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.holdingSnapshotLabel {
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.66);
+}
+
+.holdingSnapshotValue {
+    font-size: 0.79rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+}
+
+.holdingSnapshotSubValue {
+    font-size: 0.66rem;
+    line-height: 1.2;
+}
+
+.holdingSnapshotValueup {
+    color: #27cf75;
+}
+
+.holdingSnapshotValuedown {
+    color: #ff5a5a;
+}
+
+.holdingSnapshotValueflat {
+    color: rgba(255, 255, 255, 0.84);
+}
+
 .portfolioAssetsContainer {
     display: flex;
     flex-direction: column;
@@ -510,4 +557,10 @@
 
 .portfolioDataFullscreen .portfolioGraphSvg {
     min-height: 360px;
+}
+
+@media (max-width: 1000px) {
+    .holdingSnapshotGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
