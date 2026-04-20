@@ -92,6 +92,13 @@
     gap: 2px;
 }
 
+.portfolioGraphHeaderRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
 .portfolioGraphTitle {
     font-size: 0.76rem;
     font-weight: 700;
@@ -100,6 +107,38 @@
 .portfolioGraphSubtitle {
     font-size: 0.64rem;
     color: rgba(255, 255, 255, 0.72);
+}
+
+.portfolioGraphExpandButton,
+.portfolioGraphExitButton {
+    background: #1e242b;
+    color: rgba(255, 255, 255, 0.86);
+    border: 1px solid #2f3945;
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.portfolioGraphExpandButton:hover,
+.portfolioGraphExitButton:hover {
+    background: #26303a;
+    color: #ffffff;
+}
+
+.portfolioGraphExpandButton:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
+
+.portfolioGraphControlIcon {
+    width: 16px;
+    height: 16px;
+    display: block;
 }
 
 .portfolioGraphLegend {
@@ -127,6 +166,10 @@
     background: #00d4ff;
 }
 
+.portfolioGraphLegendSwatchHolding {
+    background: #ffb347;
+}
+
 .portfolioGraphSvg {
     width: 100%;
     min-height: 154px;
@@ -135,6 +178,12 @@
 .portfolioGraphGridLine {
     stroke: rgba(255, 255, 255, 0.18);
     stroke-width: 1;
+}
+
+.portfolioGraphXGridLine {
+    stroke: rgba(255, 255, 255, 0.12);
+    stroke-width: 1;
+    stroke-dasharray: 3 5;
 }
 
 .portfolioGraphAxisLabel {
@@ -153,11 +202,53 @@
     stroke: #00d4ff;
 }
 
+.portfolioGraphLineHolding {
+    stroke: #ffb347;
+}
+
 .portfolioGraphDates {
     display: flex;
     justify-content: space-between;
     font-size: 0.62rem;
     color: rgba(255, 255, 255, 0.68);
+}
+
+.portfolioGraphTimeline {
+    position: relative;
+    height: 32px;
+    margin-top: 4px;
+}
+
+.portfolioGraphTimelineTick {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    text-align: center;
+}
+
+.portfolioGraphTimelineTick::before {
+    content: "";
+    display: block;
+    width: 1px;
+    height: 6px;
+    margin: 0 auto 4px;
+    background: rgba(255, 255, 255, 0.42);
+}
+
+.portfolioGraphTimelineTick.first {
+    transform: translateX(0);
+    text-align: left;
+}
+
+.portfolioGraphTimelineTick.last {
+    transform: translateX(-100%);
+    text-align: right;
+}
+
+.portfolioGraphTimelineLabel {
+    font-size: 0.6rem;
+    color: rgba(255, 255, 255, 0.76);
+    white-space: nowrap;
 }
 
 .portfolioGraphControls {
@@ -295,6 +386,38 @@
     justify-content: space-between;
 }
 
+.portfolioAssetSymbolButton {
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.portfolioAssetSymbolButton:hover {
+    color: #00d4ff;
+    text-decoration: underline;
+}
+
+.portfolioAssetSymbolButton.active {
+    color: #00d299;
+    text-decoration: underline;
+}
+
+.portfolioAssetSymbolButton:focus-visible {
+    outline: 1px dashed #00d299;
+    outline-offset: 2px;
+}
+
+.portfolioAssetSymbolButton:disabled {
+    cursor: default;
+    opacity: 0.8;
+    text-decoration: none;
+}
+
 .portfolioAllocationContainer {
     display: flex;
     flex-direction: column;
@@ -355,4 +478,15 @@
     box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
     width: 75%;
+}
+
+.portfolioData {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.portfolioDataFullscreen .portfolioGraphSvg {
+    min-height: 360px;
 }
