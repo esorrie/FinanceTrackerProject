@@ -116,70 +116,51 @@ const Portfolio = () => {
 
             const encodedUser = encodeURIComponent(username);
             const holdingsRequest = fetchJson(
-                `/api/holdings?username=${encodedUser}`,
+                `/api/holdings?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}`,
                 "Failed to load holdings"
             );
             const portfolioHistoryRequest = fetchJson(
-                `/api/holdings/history/portfolio?username=${encodedUser}&interval=1d`,
+                `/api/holdings/history/portfolio?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d`,
                 "Failed to load portfolio history"
             );
-                const response = await fetch(
-                    `/api/holdings?username=${encodeURIComponent(username)}&currency=${encodeURIComponent(selectedCurrency)}`
-                );
-                if (!response.ok) {
-                    const text = await response.text();
-                    throw new Error(text || "Failed to load holdings");
-                }
+            const [holdingsResult, portfolioHistoryResult] = await Promise.allSettled([
+                holdingsRequest,
+                portfolioHistoryRequest
+            ]);
 
-            try {
-                const [holdingsResult, portfolioHistoryResult] = await Promise.allSettled([
-                    holdingsRequest,
-                    portfolioHistoryRequest
-                ]);
+            if (!mounted) return;
 
+            if (holdingsResult.status === "fulfilled") {
+                const data = holdingsResult.value;
                 setHoldings(Array.isArray(data.holdings) ? data.holdings : []);
                 setPortfolioSummary({
                     totalMarketValueTarget: data.totalMarketValueTarget ?? 0,
                     totalUnrealizedPnlTarget: data.totalUnrealizedPnlTarget ?? 0,
                     targetCurrency: data.targetCurrency || selectedCurrency
                 });
-            } catch (err) {
-                if (!mounted) return;
-
-                if (holdingsResult.status === "fulfilled") {
-                    const data = holdingsResult.value;
-                    setHoldings(Array.isArray(data.holdings) ? data.holdings : []);
-                    setPortfolioSummary({
-                        totalMarketValueTarget: data.totalMarketValueTarget ?? 0,
-                        totalUnrealizedPnlTarget: data.totalUnrealizedPnlTarget ?? 0,
-                        targetCurrency: data.targetCurrency || "GBP"
-                    });
-                } else {
-                    setHoldings([]);
-                    setPortfolioSummary({
-                        totalMarketValueTarget: 0,
-                        totalUnrealizedPnlTarget: 0,
-                        targetCurrency: "GBP"
-                    });
-                    setError(getErrorMessage(holdingsResult.reason, "Unable to load holdings"));
-                }
-
-                if (portfolioHistoryResult.status === "fulfilled") {
-                    const historyData = portfolioHistoryResult.value;
-                    setPortfolioHistoryPoints(Array.isArray(historyData.points) ? historyData.points : []);
-                } else {
-                    setPortfolioHistoryPoints([]);
-                    setHistoryError(getErrorMessage(
-                        portfolioHistoryResult.reason,
-                        "Unable to load portfolio history graph data."
-                    ));
-                }
-            } finally {
-                if (mounted) {
-                    setIsLoading(false);
-                    setIsHistoryLoading(false);
-                }
+            } else {
+                setHoldings([]);
+                setPortfolioSummary({
+                    totalMarketValueTarget: 0,
+                    totalUnrealizedPnlTarget: 0,
+                    targetCurrency: selectedCurrency
+                });
+                setError(getErrorMessage(holdingsResult.reason, "Unable to load holdings"));
             }
+
+            if (portfolioHistoryResult.status === "fulfilled") {
+                const historyData = portfolioHistoryResult.value;
+                setPortfolioHistoryPoints(Array.isArray(historyData.points) ? historyData.points : []);
+            } else {
+                setPortfolioHistoryPoints([]);
+                setHistoryError(getErrorMessage(
+                    portfolioHistoryResult.reason,
+                    "Unable to load portfolio history graph data."
+                ));
+            }
+
+            setIsLoading(false);
+            setIsHistoryLoading(false);
         };
 
         fetchPortfolioData();
