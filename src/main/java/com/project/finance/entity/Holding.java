@@ -46,7 +46,7 @@ public class Holding {
     @Column(name = "portfolio_total_value", nullable = false, precision = 19, scale = 4)
     private BigDecimal portfolioTotalValue;
 
-    @Column(name = "purchase_date", insertable = false, updatable = false)
+    @Column(name = "purchase_date")
     private LocalDateTime purchaseDate;
 
     public Holding() {

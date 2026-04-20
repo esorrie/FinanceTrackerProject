@@ -105,6 +105,27 @@ const NavBar = () => {
 
         const portfolioName = window.prompt('Enter portfolio name (or leave blank for default):', 'Portfolio');
 
+        const today = new Date().toISOString().slice(0, 10);
+        const purchaseDateRaw = window.prompt(`Enter purchase date for ${symbol} (YYYY-MM-DD):`, today);
+        if (!purchaseDateRaw) return;
+        const purchaseDate = purchaseDateRaw.trim();
+        const isDatePatternValid = /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate);
+        if (!isDatePatternValid) {
+            alert('Invalid date format. Use YYYY-MM-DD.');
+            return;
+        }
+        const parsedDate = new Date(`${purchaseDate}T00:00:00Z`);
+        const isCalendarDateValid = !Number.isNaN(parsedDate.getTime())
+            && parsedDate.toISOString().slice(0, 10) === purchaseDate;
+        if (!isCalendarDateValid) {
+            alert('Invalid calendar date.');
+            return;
+        }
+        if (parsedDate > new Date()) {
+            alert('Purchase date cannot be in the future.');
+            return;
+        }
+
         try {
             setAddingSymbol(symbol);
 
@@ -116,7 +137,8 @@ const NavBar = () => {
                     symbol,
                     units,
                     avgPurchasePrice,
-                    portfolioName: portfolioName || undefined
+                    portfolioName: portfolioName || undefined,
+                    purchaseDate
                 })
             });
 
