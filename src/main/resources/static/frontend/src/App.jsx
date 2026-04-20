@@ -1,9 +1,9 @@
 import React from 'react'
 import { Routes, Route } from 'react-router-dom'
 import NavBar from './Components/NavBar'
-import Dashboard from './pages/Dashboard'
+// import Dashboard from './pages/Dashboard'
 import Portfolio from './pages/Portfolio'
-import Stock from './pages/Stocks'
+// import Stock from './pages/Stocks'
 
 const App = () => {
     return (
@@ -13,7 +13,7 @@ const App = () => {
         <div className="main">
           <Routes>
             <Route exact path="/" element={<Portfolio />} />
-            <Route path="/stocks" element={<Stock />} /> 
+            {/* <Route path="/stocks" element={<Stock />} />  */}
           </Routes>
         </div>
       </div>
