@@ -1209,6 +1209,17 @@ const Portfolio = () => {
                                             )}
                                         </svg>
 
+                                        {renderRangeControls({
+                                            ariaLabel: "Portfolio history range",
+                                            activeRange: portfolioActiveRange,
+                                            isCustomInputOpen: isPortfolioCustomInputOpen,
+                                            customRangeInput: portfolioCustomRangeInput,
+                                            customRangeError: portfolioCustomRangeError,
+                                            onRangeClick: handlePortfolioRangeClick,
+                                            onCustomInputChange: setPortfolioCustomRangeInput,
+                                            onApplyCustomRange: handleApplyPortfolioCustomRange
+                                        })}
+
                                         <div className="portfolioGraphTimeline" aria-hidden="true">
                                             {portfolioTimelineTicks.map((tick, index) => {
                                                 const edgeClass = index === 0
@@ -1227,17 +1238,6 @@ const Portfolio = () => {
                                                 );
                                             })}
                                         </div>
-
-                                        {renderRangeControls({
-                                            ariaLabel: "Portfolio history range",
-                                            activeRange: portfolioActiveRange,
-                                            isCustomInputOpen: isPortfolioCustomInputOpen,
-                                            customRangeInput: portfolioCustomRangeInput,
-                                            customRangeError: portfolioCustomRangeError,
-                                            onRangeClick: handlePortfolioRangeClick,
-                                            onCustomInputChange: setPortfolioCustomRangeInput,
-                                            onApplyCustomRange: handleApplyPortfolioCustomRange
-                                        })}
                                     </>
                                 )}
                             </>
@@ -1344,6 +1344,17 @@ const Portfolio = () => {
                                             )}
                                         </svg>
 
+                                        {renderRangeControls({
+                                            ariaLabel: "Stock history range",
+                                            activeRange: stockActiveRange,
+                                            isCustomInputOpen: isStockCustomInputOpen,
+                                            customRangeInput: stockCustomRangeInput,
+                                            customRangeError: stockCustomRangeError,
+                                            onRangeClick: handleStockRangeClick,
+                                            onCustomInputChange: setStockCustomRangeInput,
+                                            onApplyCustomRange: handleApplyStockCustomRange
+                                        })}
+
                                         <div className="portfolioGraphTimeline" aria-hidden="true">
                                             {selectedHoldingTimelineTicks.map((tick, index) => {
                                                 const edgeClass = index === 0
@@ -1406,17 +1417,6 @@ const Portfolio = () => {
                                                 </div>
                                             </div>
                                         )}
-
-                                        {renderRangeControls({
-                                            ariaLabel: "Stock history range",
-                                            activeRange: stockActiveRange,
-                                            isCustomInputOpen: isStockCustomInputOpen,
-                                            customRangeInput: stockCustomRangeInput,
-                                            customRangeError: stockCustomRangeError,
-                                            onRangeClick: handleStockRangeClick,
-                                            onCustomInputChange: setStockCustomRangeInput,
-                                            onApplyCustomRange: handleApplyStockCustomRange
-                                        })}
                                     </>
                                 )}
                             </>
