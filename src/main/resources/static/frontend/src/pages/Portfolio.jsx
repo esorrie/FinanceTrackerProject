@@ -170,7 +170,7 @@ const Portfolio = () => {
     const [selectedCurrency, setSelectedCurrency] = useState("GBP");
     const [portfolioSummary, setPortfolioSummary] = useState({
         totalMarketValueTarget: 0,
-        totalUnrealizedPnlTarget: 0,
+        totalInvestedTarget: 0,
         targetCurrency: "GBP"
     });
     const [isLoading, setIsLoading] = useState(true);
@@ -235,14 +235,14 @@ const Portfolio = () => {
                 setHoldings(Array.isArray(data.holdings) ? data.holdings : []);
                 setPortfolioSummary({
                     totalMarketValueTarget: data.totalMarketValueTarget ?? 0,
-                    totalUnrealizedPnlTarget: data.totalUnrealizedPnlTarget ?? 0,
+                    totalInvestedTarget: data.totalInvestedTarget ?? 0,
                     targetCurrency: data.targetCurrency || selectedCurrency
                 });
             } else {
                 setHoldings([]);
                 setPortfolioSummary({
                     totalMarketValueTarget: 0,
-                    totalUnrealizedPnlTarget: 0,
+                    totalInvestedTarget: 0,
                     targetCurrency: selectedCurrency
                 });
                 setError(getErrorMessage(holdingsResult.reason, "Unable to load holdings"));
@@ -867,7 +867,7 @@ const Portfolio = () => {
                         {formatNumber(portfolioSummary.totalMarketValueTarget)}
                     </div>
                     <div className="portfolioPerformance">
-                        <span>{activeCurrencySymbol} {formatNumber(portfolioSummary.totalUnrealizedPnlTarget)}</span>
+                        <span>{activeCurrencySymbol} {formatNumber(portfolioSummary.totalInvestedTarget)}</span>
                         <span className={`portfolioPerformanceDelta ${performanceTrendClass}`}>
                             <span className="portfolioPerformanceArrow" aria-hidden="true">{performanceArrow}</span>
                             <span>{formatSignedCurrencyAmount(timeframePerformance.changeAmount, activeCurrencyCode)}</span>
