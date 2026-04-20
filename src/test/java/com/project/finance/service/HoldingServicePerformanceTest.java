@@ -117,7 +117,7 @@ class HoldingServicePerformanceTest {
                 )
         ));
 
-        PortfolioPerformanceResponse response = holdingService.getPortfolioPerformance("demo_user", null);
+        PortfolioPerformanceResponse response = holdingService.getPortfolioPerformance("demo_user", null, null);
 
         assertEquals("USD", response.targetCurrency());
         assertEquals(2, response.holdingsCount());
@@ -184,7 +184,7 @@ class HoldingServicePerformanceTest {
                 ))
                 .thenReturn(Optional.of(eurUsd));
 
-        PortfolioPerformanceResponse response = holdingService.getPortfolioPerformance("fx_user", null);
+        PortfolioPerformanceResponse response = holdingService.getPortfolioPerformance("fx_user", null, null);
 
         assertEquals("USD", response.targetCurrency());
         assertEquals(new BigDecimal("432.0000"), response.currentValueTarget());
@@ -240,7 +240,7 @@ class HoldingServicePerformanceTest {
                         new YahooFinanceClient.HistoricalPricePoint(LocalDate.now().minusDays(1), new BigDecimal("120.0000"))
                 ));
 
-        HoldingHistoryResponse response = holdingService.getHoldingHistory("history_user", "sap.de", "GBP", null);
+        HoldingHistoryResponse response = holdingService.getHoldingHistory("history_user", "sap.de", "GBP", null, null);
 
         assertEquals("GBP", response.targetCurrency());
         assertEquals("EUR", response.sourceCurrency());
@@ -305,7 +305,7 @@ class HoldingServicePerformanceTest {
                         new YahooFinanceClient.HistoricalPricePoint(day1, new BigDecimal("50.0000"))
                 ));
 
-        PortfolioHistoryResponse response = holdingService.getPortfolioHistory("portfolio_history_user", "EUR", null);
+        PortfolioHistoryResponse response = holdingService.getPortfolioHistory("portfolio_history_user", "EUR", null, null);
 
         assertEquals("EUR", response.targetCurrency());
         assertEquals("1d", response.interval());

@@ -164,7 +164,7 @@ const getErrorMessage = (errorLike, fallback) => {
 };
 
 const Portfolio = () => {
-    const { user } = useUser();
+    const { user, selectedPortfolioId } = useUser();
     const [holdings, setHoldings] = useState([]);
     const [portfolioHistoryPoints, setPortfolioHistoryPoints] = useState([]);
     const [selectedCurrency, setSelectedCurrency] = useState("GBP");
@@ -214,12 +214,15 @@ const Portfolio = () => {
             setPortfolioCustomRangeError("");
 
             const encodedUser = encodeURIComponent(username);
+            const portfolioQuery = selectedPortfolioId != null
+                ? `&portfolioId=${encodeURIComponent(selectedPortfolioId)}`
+                : "";
             const holdingsRequest = fetchJson(
-                `/api/holdings?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}`,
+                `/api/holdings?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}${portfolioQuery}`,
                 "Failed to load holdings"
             );
             const portfolioHistoryRequest = fetchJson(
-                `/api/holdings/history/portfolio?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d`,
+                `/api/holdings/history/portfolio?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d${portfolioQuery}`,
                 "Failed to load portfolio history"
             );
             const [holdingsResult, portfolioHistoryResult] = await Promise.allSettled([
@@ -266,7 +269,7 @@ const Portfolio = () => {
         return () => {
             mounted = false;
         };
-    }, [username, selectedCurrency]);
+    }, [selectedCurrency, selectedPortfolioId, username]);
 
     useEffect(() => {
         if (!selectedHoldingSymbol) return;
@@ -311,8 +314,11 @@ const Portfolio = () => {
             try {
                 const encodedUser = encodeURIComponent(username);
                 const encodedSymbol = encodeURIComponent(selectedHoldingSymbol);
+                const portfolioQuery = selectedPortfolioId != null
+                    ? `&portfolioId=${encodeURIComponent(selectedPortfolioId)}`
+                    : "";
                 const selectedHoldingHistory = await fetchJson(
-                    `/api/holdings/history/asset?username=${encodedUser}&symbol=${encodedSymbol}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d`,
+                    `/api/holdings/history/asset?username=${encodedUser}&symbol=${encodedSymbol}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d${portfolioQuery}`,
                     "Failed to load stock history"
                 );
 
@@ -346,7 +352,7 @@ const Portfolio = () => {
         return () => {
             mounted = false;
         };
-    }, [username, selectedCurrency, selectedHoldingSymbol]);
+    }, [selectedCurrency, selectedHoldingSymbol, selectedPortfolioId, username]);
 
     const formatNumber = (value) => {
         const numberValue = Number(value);
