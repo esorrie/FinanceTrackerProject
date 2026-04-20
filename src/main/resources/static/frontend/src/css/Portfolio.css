@@ -37,9 +37,186 @@
 
 .portfolioGraphContainer {
     padding: 15px 10px;
-    height: 200px;
+    min-height: 270px;
     box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
+}
+
+.portfolioGraph {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.portfolioGraphHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.portfolioGraphTitle {
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.portfolioGraphSubtitle {
+    font-size: 0.64rem;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.portfolioGraphLegend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.portfolioGraphLegendItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.64rem;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.portfolioGraphLegendSwatch {
+    width: 14px;
+    height: 2px;
+    border-radius: 999px;
+    display: inline-block;
+}
+
+.portfolioGraphLegendSwatchPortfolio {
+    background: #00d4ff;
+}
+
+.portfolioGraphSvg {
+    width: 100%;
+    min-height: 154px;
+}
+
+.portfolioGraphGridLine {
+    stroke: rgba(255, 255, 255, 0.18);
+    stroke-width: 1;
+}
+
+.portfolioGraphAxisLabel {
+    fill: rgba(255, 255, 255, 0.62);
+    font-size: 11px;
+}
+
+.portfolioGraphLine {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.4;
+}
+
+.portfolioGraphLinePortfolio {
+    stroke: #00d4ff;
+}
+
+.portfolioGraphDates {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.62rem;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.portfolioGraphControls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.portfolioRangeButtons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.portfolioRangeButton {
+    background: #1e242b;
+    color: rgba(255, 255, 255, 0.82);
+    border: 1px solid #2f3945;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.portfolioRangeButton:hover {
+    background: #26303a;
+    color: #ffffff;
+}
+
+.portfolioRangeButton.active {
+    background: #00a878;
+    border-color: #00d299;
+    color: #ffffff;
+}
+
+.portfolioRangeCustom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.portfolioRangeCustomInput {
+    flex: 1;
+    min-width: 110px;
+    background: #1e242b;
+    border: 1px solid #2f3945;
+    border-radius: 7px;
+    color: #ffffff;
+    font-size: 0.66rem;
+    padding: 6px 8px;
+    outline: none;
+    text-transform: uppercase;
+}
+
+.portfolioRangeCustomInput::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.portfolioRangeCustomInput:focus {
+    border-color: #00d299;
+    box-shadow: 0 0 0 1px rgba(0, 210, 153, 0.45);
+}
+
+.portfolioRangeCustomApply {
+    background: #00a878;
+    color: #ffffff;
+    border: 1px solid #00d299;
+    border-radius: 7px;
+    font-size: 0.64rem;
+    font-weight: 700;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.portfolioRangeCustomApply:hover {
+    background: #00b985;
+}
+
+.portfolioGraphStatus {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.8);
+    min-height: 170px;
+}
+
+.portfolioGraphNote {
+    font-size: 0.62rem;
+    color: #ffcb66;
+    line-height: 1.35;
 }
 
 .portfolioAssetsContainer {

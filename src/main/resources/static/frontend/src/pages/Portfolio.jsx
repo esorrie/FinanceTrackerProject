@@ -2,52 +2,172 @@ import React, { useEffect, useMemo, useState } from "react";
 import "../css/Portfolio.css";
 import { useUser } from "../UserContext";
 
+const CHART_WIDTH = 900;
+const CHART_HEIGHT = 220;
+const CHART_PADDING_X = 36;
+const CHART_PADDING_Y = 18;
+const HISTORY_RANGE_OPTIONS = ["1D", "1W", "1M", "3M", "1Y", "MAX", "OPTIONAL"];
+const CUSTOM_RANGE_PATTERN = /^(\d+)\s*([DdWwMmYy])$/;
+
+const fetchJson = async (url, fallbackMessage) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || fallbackMessage);
+    }
+    return response.json();
+};
+
+const toTimestamp = (isoDate) => {
+    if (!isoDate) return NaN;
+    const timestamp = new Date(`${isoDate}T00:00:00`).getTime();
+    return Number.isNaN(timestamp) ? NaN : timestamp;
+};
+
+const subtractRangeFromDate = (date, amount, unit) => {
+    const next = new Date(date.getTime());
+    switch (unit) {
+        case "D":
+            next.setDate(next.getDate() - amount);
+            break;
+        case "W":
+            next.setDate(next.getDate() - (amount * 7));
+            break;
+        case "M":
+            next.setMonth(next.getMonth() - amount);
+            break;
+        case "Y":
+            next.setFullYear(next.getFullYear() - amount);
+            break;
+        default:
+            break;
+    }
+    return next;
+};
+
+const formatDateLabel = (isoDate) => {
+    const timestamp = toTimestamp(isoDate);
+    if (!Number.isFinite(timestamp)) return isoDate || "";
+    return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+    }).format(new Date(timestamp));
+};
+
+const createLinePath = (series, scales) => {
+    if (!series.length || !scales) return "";
+
+    const xRange = scales.maxTimestamp - scales.minTimestamp || 1;
+    const yRange = scales.maxValue - scales.minValue || 1;
+    const plotWidth = CHART_WIDTH - CHART_PADDING_X * 2;
+    const plotHeight = CHART_HEIGHT - CHART_PADDING_Y * 2;
+
+    return series
+        .map((point, index) => {
+            const x = CHART_PADDING_X + ((point.timestamp - scales.minTimestamp) / xRange) * plotWidth;
+            const y = CHART_PADDING_Y + (1 - ((point.value - scales.minValue) / yRange)) * plotHeight;
+            return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+        })
+        .join(" ");
+};
+
+const getErrorMessage = (errorLike, fallback) => {
+    if (errorLike instanceof Error && errorLike.message) return errorLike.message;
+    if (typeof errorLike === "string" && errorLike.trim()) return errorLike;
+    return fallback;
+};
+
 const Portfolio = () => {
     const { user } = useUser();
     const [holdings, setHoldings] = useState([]);
+    const [portfolioHistoryPoints, setPortfolioHistoryPoints] = useState([]);
     const [portfolioSummary, setPortfolioSummary] = useState({
         totalMarketValueTarget: 0,
         totalUnrealizedPnlTarget: 0,
-        targetCurrency: "£"
+        targetCurrency: "GBP"
     });
     const [isLoading, setIsLoading] = useState(true);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(true);
     const [error, setError] = useState("");
+    const [historyError, setHistoryError] = useState("");
+    const [activeRange, setActiveRange] = useState("1M");
+    const [isCustomInputOpen, setIsCustomInputOpen] = useState(false);
+    const [customRangeInput, setCustomRangeInput] = useState("");
+    const [customRangeSpec, setCustomRangeSpec] = useState(null);
+    const [customRangeError, setCustomRangeError] = useState("");
 
     const username = useMemo(() => user?.username || "demo", [user]);
 
     useEffect(() => {
         let mounted = true;
 
-        const fetchHoldings = async () => {
-            try {
-                setIsLoading(true);
-                setError("");
+        const fetchPortfolioData = async () => {
+            setIsLoading(true);
+            setIsHistoryLoading(true);
+            setError("");
+            setHistoryError("");
+            setActiveRange("1M");
+            setIsCustomInputOpen(false);
+            setCustomRangeInput("");
+            setCustomRangeSpec(null);
+            setCustomRangeError("");
 
-                const response = await fetch(`/api/holdings?username=${encodeURIComponent(username)}`);
-                if (!response.ok) {
-                    const text = await response.text();
-                    throw new Error(text || "Failed to load holdings");
+            const encodedUser = encodeURIComponent(username);
+            const holdingsRequest = fetchJson(
+                `/api/holdings?username=${encodedUser}`,
+                "Failed to load holdings"
+            );
+            const portfolioHistoryRequest = fetchJson(
+                `/api/holdings/history/portfolio?username=${encodedUser}&interval=1d`,
+                "Failed to load portfolio history"
+            );
+
+            try {
+                const [holdingsResult, portfolioHistoryResult] = await Promise.allSettled([
+                    holdingsRequest,
+                    portfolioHistoryRequest
+                ]);
+
+                if (!mounted) return;
+
+                if (holdingsResult.status === "fulfilled") {
+                    const data = holdingsResult.value;
+                    setHoldings(Array.isArray(data.holdings) ? data.holdings : []);
+                    setPortfolioSummary({
+                        totalMarketValueTarget: data.totalMarketValueTarget ?? 0,
+                        totalUnrealizedPnlTarget: data.totalUnrealizedPnlTarget ?? 0,
+                        targetCurrency: data.targetCurrency || "GBP"
+                    });
+                } else {
+                    setHoldings([]);
+                    setPortfolioSummary({
+                        totalMarketValueTarget: 0,
+                        totalUnrealizedPnlTarget: 0,
+                        targetCurrency: "GBP"
+                    });
+                    setError(getErrorMessage(holdingsResult.reason, "Unable to load holdings"));
                 }
 
-                const data = await response.json();
-                if (!mounted) return;
-
-                setHoldings(Array.isArray(data.holdings) ? data.holdings : []);
-                setPortfolioSummary({
-                    totalMarketValueTarget: data.totalMarketValueTarget ?? 0,
-                    totalUnrealizedPnlTarget: data.totalUnrealizedPnlTarget ?? 0,
-                    targetCurrency: data.targetCurrency || "£"
-                });
-            } catch (err) {
-                if (!mounted) return;
-                setHoldings([]);
-                setError(err?.message || "Unable to load holdings");
+                if (portfolioHistoryResult.status === "fulfilled") {
+                    const historyData = portfolioHistoryResult.value;
+                    setPortfolioHistoryPoints(Array.isArray(historyData.points) ? historyData.points : []);
+                } else {
+                    setPortfolioHistoryPoints([]);
+                    setHistoryError(getErrorMessage(
+                        portfolioHistoryResult.reason,
+                        "Unable to load portfolio history graph data."
+                    ));
+                }
             } finally {
-                if (mounted) setIsLoading(false);
+                if (mounted) {
+                    setIsLoading(false);
+                    setIsHistoryLoading(false);
+                }
             }
         };
 
-        fetchHoldings();
+        fetchPortfolioData();
         return () => {
             mounted = false;
         };
@@ -98,7 +218,175 @@ const Portfolio = () => {
         return topFive;
     }, [holdings]);
 
+    const portfolioSeries = useMemo(() => (
+        (Array.isArray(portfolioHistoryPoints) ? portfolioHistoryPoints : [])
+            .map(point => ({
+                date: point?.date,
+                timestamp: toTimestamp(point?.date),
+                value: Number(point?.portfolioValueTarget)
+            }))
+            .filter(point => Number.isFinite(point.timestamp) && Number.isFinite(point.value) && point.value >= 0)
+            .sort((a, b) => a.timestamp - b.timestamp)
+    ), [portfolioHistoryPoints]);
 
+    const historyBounds = useMemo(() => {
+        if (!portfolioSeries.length) return null;
+        return {
+            earliestTimestamp: portfolioSeries[0].timestamp,
+            latestTimestamp: portfolioSeries[portfolioSeries.length - 1].timestamp
+        };
+    }, [portfolioSeries]);
+
+    const maxRangeStartLabel = useMemo(() => (
+        portfolioSeries.length ? formatDateLabel(portfolioSeries[0].date) : ""
+    ), [portfolioSeries]);
+
+    const filteredPortfolioSeries = useMemo(() => {
+        if (!portfolioSeries.length || !historyBounds) return [];
+
+        if (activeRange === "MAX") {
+            return portfolioSeries;
+        }
+
+        let startTimestamp = historyBounds.earliestTimestamp;
+        const latestDate = new Date(historyBounds.latestTimestamp);
+
+        if (activeRange === "CUSTOM") {
+            if (!customRangeSpec) {
+                return portfolioSeries;
+            }
+            startTimestamp = subtractRangeFromDate(latestDate, customRangeSpec.amount, customRangeSpec.unit).getTime();
+        } else {
+            switch (activeRange) {
+                case "1D":
+                    startTimestamp = subtractRangeFromDate(latestDate, 1, "D").getTime();
+                    break;
+                case "1W":
+                    startTimestamp = subtractRangeFromDate(latestDate, 1, "W").getTime();
+                    break;
+                case "1M":
+                    startTimestamp = subtractRangeFromDate(latestDate, 1, "M").getTime();
+                    break;
+                case "3M":
+                    startTimestamp = subtractRangeFromDate(latestDate, 3, "M").getTime();
+                    break;
+                case "1Y":
+                    startTimestamp = subtractRangeFromDate(latestDate, 1, "Y").getTime();
+                    break;
+                default:
+                    startTimestamp = historyBounds.earliestTimestamp;
+                    break;
+            }
+        }
+
+        const filtered = portfolioSeries.filter(point => point.timestamp >= startTimestamp);
+        return filtered.length ? filtered : portfolioSeries.slice(-1);
+    }, [activeRange, customRangeSpec, historyBounds, portfolioSeries]);
+
+    const handleRangeClick = (rangeLabel) => {
+        setCustomRangeError("");
+        if (rangeLabel === "OPTIONAL") {
+            setIsCustomInputOpen(true);
+            return;
+        }
+
+        setActiveRange(rangeLabel);
+        setIsCustomInputOpen(false);
+    };
+
+    const handleApplyCustomRange = () => {
+        if (!historyBounds) return;
+
+        const normalized = customRangeInput.trim().toUpperCase();
+        const match = normalized.match(CUSTOM_RANGE_PATTERN);
+        if (!match) {
+            setCustomRangeError("Use format like 10D, 6M, or 2Y.");
+            return;
+        }
+
+        const amount = Number.parseInt(match[1], 10);
+        const unit = match[2].toUpperCase();
+        if (!Number.isFinite(amount) || amount <= 0) {
+            setCustomRangeError("Custom range must be greater than 0.");
+            return;
+        }
+
+        const startTimestamp = subtractRangeFromDate(
+            new Date(historyBounds.latestTimestamp),
+            amount,
+            unit
+        ).getTime();
+
+        if (startTimestamp < historyBounds.earliestTimestamp) {
+            setCustomRangeError(`Custom range exceeds MAX. Oldest available point starts on ${maxRangeStartLabel}.`);
+            return;
+        }
+
+        setCustomRangeSpec({ amount, unit, label: `${amount}${unit}` });
+        setActiveRange("CUSTOM");
+        setCustomRangeError("");
+    };
+
+    const activeRangeLabel = useMemo(() => {
+        if (activeRange === "CUSTOM") {
+            return customRangeSpec?.label || "OPTIONAL";
+        }
+        return activeRange;
+    }, [activeRange, customRangeSpec]);
+
+    const chartModel = useMemo(() => {
+        if (!filteredPortfolioSeries.length) return null;
+
+        const timestamps = filteredPortfolioSeries.map(point => point.timestamp);
+        let minTimestamp = Math.min(...timestamps);
+        let maxTimestamp = Math.max(...timestamps);
+        if (minTimestamp === maxTimestamp) {
+            maxTimestamp = minTimestamp + 1;
+        }
+
+        const values = filteredPortfolioSeries.map(point => point.value);
+        let minValue = Math.min(...values);
+        let maxValue = Math.max(...values);
+        if (minValue === maxValue) {
+            minValue -= 1;
+            maxValue += 1;
+        } else {
+            const padding = (maxValue - minValue) * 0.1;
+            minValue -= padding;
+            maxValue += padding;
+        }
+
+        const scales = { minTimestamp, maxTimestamp, minValue, maxValue };
+        return {
+            scales,
+            portfolioPath: createLinePath(filteredPortfolioSeries, scales)
+        };
+    }, [filteredPortfolioSeries]);
+
+    const yAxisTicks = useMemo(() => {
+        if (!chartModel) return [];
+        const { minValue, maxValue } = chartModel.scales;
+        const plotHeight = CHART_HEIGHT - CHART_PADDING_Y * 2;
+
+        return Array.from({ length: 5 }, (_, index) => {
+            const ratio = index / 4;
+            return {
+                y: CHART_PADDING_Y + ratio * plotHeight,
+                value: maxValue - ratio * (maxValue - minValue)
+            };
+        });
+    }, [chartModel]);
+
+    const graphDateRange = useMemo(() => {
+        if (!filteredPortfolioSeries.length) {
+            return { start: "", end: "" };
+        }
+
+        return {
+            start: formatDateLabel(filteredPortfolioSeries[0].date),
+            end: formatDateLabel(filteredPortfolioSeries[filteredPortfolioSeries.length - 1].date)
+        };
+    }, [filteredPortfolioSeries]);
 
     return (
         <>
@@ -113,7 +401,121 @@ const Portfolio = () => {
 
                     <div className="portfolioContentContainer">
                         <div className="portfolioGraphContainer">
-                            <div className="portfolioGraph">Portfolio graph</div>
+                            <div className="portfolioGraph">
+                                {isHistoryLoading && (
+                                    <div className="portfolioGraphStatus">Loading portfolio graph...</div>
+                                )}
+
+                                {!isHistoryLoading && historyError && (
+                                    <div className="portfolioGraphStatus">{historyError}</div>
+                                )}
+
+                                {!isHistoryLoading && !historyError && !chartModel && (
+                                    <div className="portfolioGraphStatus">No portfolio history is available yet.</div>
+                                )}
+
+                                {!isHistoryLoading && !historyError && chartModel && (
+                                    <>
+                                        <div className="portfolioGraphHeader">
+                                            <div className="portfolioGraphTitle">Portfolio history</div>
+                                            <div className="portfolioGraphSubtitle">
+                                                Value in {portfolioSummary.targetCurrency} | Range {activeRangeLabel}
+                                            </div>
+                                        </div>
+
+                                        <div className="portfolioGraphLegend">
+                                            <div className="portfolioGraphLegendItem">
+                                                <span className="portfolioGraphLegendSwatch portfolioGraphLegendSwatchPortfolio"></span>
+                                                Portfolio
+                                            </div>
+                                        </div>
+
+                                        <svg
+                                            className="portfolioGraphSvg"
+                                            viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                                            preserveAspectRatio="none"
+                                            role="img"
+                                            aria-label="Portfolio history"
+                                        >
+                                            {yAxisTicks.map((tick, index) => (
+                                                <g key={`tick-${index}`}>
+                                                    <line
+                                                        x1={CHART_PADDING_X}
+                                                        y1={tick.y}
+                                                        x2={CHART_WIDTH - CHART_PADDING_X}
+                                                        y2={tick.y}
+                                                        className="portfolioGraphGridLine"
+                                                    />
+                                                    <text x="4" y={tick.y + 4} className="portfolioGraphAxisLabel">
+                                                        {formatNumber(tick.value)}
+                                                    </text>
+                                                </g>
+                                            ))}
+
+                                            {chartModel.portfolioPath && (
+                                                <path
+                                                    d={chartModel.portfolioPath}
+                                                    className="portfolioGraphLine portfolioGraphLinePortfolio"
+                                                />
+                                            )}
+                                        </svg>
+
+                                        <div className="portfolioGraphDates">
+                                            <span>{graphDateRange.start}</span>
+                                            <span>{graphDateRange.end}</span>
+                                        </div>
+
+                                        <div className="portfolioGraphControls">
+                                            <div className="portfolioRangeButtons" role="group" aria-label="Portfolio history range">
+                                                {HISTORY_RANGE_OPTIONS.map((rangeLabel) => {
+                                                    const isActive = rangeLabel === "OPTIONAL"
+                                                        ? activeRange === "CUSTOM" || isCustomInputOpen
+                                                        : activeRange === rangeLabel;
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={rangeLabel}
+                                                            className={`portfolioRangeButton${isActive ? " active" : ""}`}
+                                                            onClick={() => handleRangeClick(rangeLabel)}
+                                                        >
+                                                            {rangeLabel}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {isCustomInputOpen && (
+                                                <div className="portfolioRangeCustom">
+                                                    <input
+                                                        type="text"
+                                                        value={customRangeInput}
+                                                        onChange={(event) => setCustomRangeInput(event.target.value)}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === "Enter") {
+                                                                handleApplyCustomRange();
+                                                            }
+                                                        }}
+                                                        className="portfolioRangeCustomInput"
+                                                        placeholder="e.g. 10D, 6M, 2Y"
+                                                        aria-label="Custom time range"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="portfolioRangeCustomApply"
+                                                        onClick={handleApplyCustomRange}
+                                                    >
+                                                        Apply
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {customRangeError && (
+                                            <div className="portfolioGraphNote">{customRangeError}</div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
 
