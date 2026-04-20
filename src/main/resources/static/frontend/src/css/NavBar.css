@@ -97,7 +97,7 @@
 }
 
 .navBarSearchSuggestion {
-    width: 100%;
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -108,6 +108,34 @@
     text-align: left;
     padding: 10px 12px;
     cursor: pointer;
+}
+
+.navBarSearchSuggestionRow {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    padding: 6px 8px;
+}
+
+.navBarSearchAddButton {
+    border: 1px solid rgba(0, 196, 204, 0.65);
+    background: rgba(0, 196, 204, 0.14);
+    color: #e9feff;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 62px;
+}
+
+.navBarSearchAddButton:hover:not(:disabled) {
+    background: rgba(0, 196, 204, 0.25);
+}
+
+.navBarSearchAddButton:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
 }
 
 .navBarSearchSuggestion:hover {

@@ -1,19 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import '../css/NavBar.css';
 import logo from "./Images/SpendX logo 3.png";
+import { useUser } from "../UserContext";
 
 const NavBar = () => {
+    const { user } = useUser();
     const [query, setQuery] = useState("");
     const [assets, setAssets] = useState([]);
     const [assetsLoading, setAssetsLoading] = useState(false);
     const [assetLoadError, setAssetLoadError] = useState("");
-    const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const dropdownRef = useRef(null);
+    const [addingSymbol, setAddingSymbol] = useState("");
     const searchRef = useRef(null);
-    const location = useLocation();
-    const currentPath = (location && location.pathname ? location.pathname.toLowerCase() : '/');
     const normalizedQuery = query.trim().toLowerCase();
 
     const loadAssets = async (signal) => {
@@ -77,15 +76,68 @@ const NavBar = () => {
     const handleSuggestionSelect = (asset) => {
         const nextQuery = asset.assetName || asset.assetSymbol || '';
         setQuery(nextQuery);
-        setShowSuggestions(false);
+    };
+
+    const addToHoldings = async (asset) => {
+        const symbol = asset?.assetSymbol;
+        if (!symbol) {
+            alert('Unable to add holding: missing stock symbol');
+            return;
+        }
+
+        const username = user?.username || 'demo';
+
+        const unitsRaw = window.prompt(`Enter units for ${symbol} (e.g. 1.5):`, '1');
+        if (!unitsRaw) return;
+        const units = Number(unitsRaw);
+        if (Number.isNaN(units) || units <= 0) {
+            alert('Invalid units');
+            return;
+        }
+
+        const avgPriceRaw = window.prompt(`Enter average purchase price for ${symbol} (e.g. 123.45):`, '1');
+        if (!avgPriceRaw) return;
+        const avgPurchasePrice = Number(avgPriceRaw);
+        if (Number.isNaN(avgPurchasePrice) || avgPurchasePrice <= 0) {
+            alert('Invalid average purchase price');
+            return;
+        }
+
+        const portfolioName = window.prompt('Enter portfolio name (or leave blank for default):', 'Portfolio');
+
+        try {
+            setAddingSymbol(symbol);
+
+            const response = await fetch('/api/holdings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    symbol,
+                    units,
+                    avgPurchasePrice,
+                    portfolioName: portfolioName || undefined
+                })
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Failed to create holding');
+            }
+
+            await response.json();
+            alert(`Added ${symbol} to holdings`);
+            setShowSuggestions(false);
+        } catch (error) {
+            alert(`Error creating holding: ${error?.message || error}`);
+        } finally {
+            setAddingSymbol('');
+        }
     };
 
     // Close dropdowns when clicking outside
     useEffect(() => {
         function handleClickOutside(event) {
-            if (dropdownOpen && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setDropdownOpen(false);
-            }
             if (showSuggestions && searchRef.current && !searchRef.current.contains(event.target)) {
                 setShowSuggestions(false);
             }
@@ -93,7 +145,7 @@ const NavBar = () => {
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [dropdownOpen, showSuggestions]);
+    }, [showSuggestions]);
 
     return (
         <>
@@ -139,15 +191,27 @@ const NavBar = () => {
                                         <div className="navBarSearchSuggestionStatus">{assetLoadError}</div>
                                     ) : suggestions.length > 0 ? (
                                         suggestions.map((asset, index) => (
-                                            <button
-                                                type="button"
+                                            <div
                                                 key={`${asset.assetId ?? 'stock'}-${asset.assetSymbol ?? asset.assetName ?? 'item'}-${index}`}
-                                                className="navBarSearchSuggestion"
-                                                onClick={() => handleSuggestionSelect(asset)}
+                                                className="navBarSearchSuggestionRow"
                                             >
-                                                <span className="navBarSearchSuggestionName">{asset.assetName || 'Unknown stock'}</span>
-                                                <span className="navBarSearchSuggestionSymbol">{asset.assetSymbol || '-'}</span>
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    className="navBarSearchSuggestion"
+                                                    onClick={() => handleSuggestionSelect(asset)}
+                                                >
+                                                    <span className="navBarSearchSuggestionName">{asset.assetName || 'Unknown stock'}</span>
+                                                    <span className="navBarSearchSuggestionSymbol">{asset.assetSymbol || '-'}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="navBarSearchAddButton"
+                                                    onClick={() => addToHoldings(asset)}
+                                                    disabled={addingSymbol === asset.assetSymbol}
+                                                >
+                                                    {addingSymbol === asset.assetSymbol ? 'Adding...' : 'Add'}
+                                                </button>
+                                            </div>
                                         ))
                                     ) : (
                                         <div className="navBarSearchSuggestionStatus">No stocks found</div>
