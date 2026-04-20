@@ -462,7 +462,7 @@ const Portfolio = () => {
             }))
             .sort((a, b) => b.percentage - a.percentage);
 
-        const topFive = sorted.slice(0, 5);
+        const topFive = sorted.slice(0, 4);
         const other = sorted.slice(5);
 
         if (other.length > 0) {
@@ -645,6 +645,51 @@ const Portfolio = () => {
     const sortedHoldings = useMemo(() => {
         return [...holdings].sort((a, b) => Number(b.marketValueTarget || 0) - Number(a.marketValueTarget || 0));
     }, [holdings]);
+
+    const portfolioHoldingRows = useMemo(() => {
+        if (!holdings.length) return [];
+
+        const grouped = new Map();
+
+        for (const holding of holdings) {
+            const symbol = holding?.symbol || "N/A";
+            const existing = grouped.get(symbol) || {
+                assetName: holding?.assetName || symbol,
+                symbol,
+                totalValue: 0,
+                totalChange: 0,
+                totalUnits: 0,
+                totalInvested: 0,
+                currencyCode: holding?.targetCurrency || activeCurrencyCode
+            };
+
+            const units = Number(holding?.units || 0);
+            const marketValue = Number(holding?.marketValueTarget || 0);
+            const change = Number(holding?.unrealizedPnlTarget || 0);
+            const invested = Number(
+                holding?.investedAmountTarget
+                ?? (Number(holding?.avgPurchasePriceTarget || 0) * units)
+            );
+
+            existing.totalUnits += Number.isFinite(units) ? units : 0;
+            existing.totalValue += Number.isFinite(marketValue) ? marketValue : 0;
+            existing.totalChange += Number.isFinite(change) ? change : 0;
+            existing.totalInvested += Number.isFinite(invested) ? invested : 0;
+            grouped.set(symbol, existing);
+        }
+
+        return Array.from(grouped.values())
+            .map((item) => ({
+                ...item,
+                changePercent: Math.abs(item.totalInvested) > PERFORMANCE_EPSILON
+                    ? (item.totalChange / item.totalInvested) * 100
+                    : 0,
+                averagePrice: Math.abs(item.totalUnits) > PERFORMANCE_EPSILON
+                    ? item.totalInvested / item.totalUnits
+                    : 0
+            }))
+            .sort((a, b) => b.totalValue - a.totalValue);
+    }, [holdings, activeCurrencyCode]);
 
     const selectedHoldingTradePrice = useMemo(() => {
         if (!selectedHoldingSymbol) return null;
@@ -1238,6 +1283,59 @@ const Portfolio = () => {
                                             onCustomInputChange: setPortfolioCustomRangeInput,
                                             onApplyCustomRange: handleApplyPortfolioCustomRange
                                         })}
+
+                                        <div className="portfolioDataScrollSection">
+                                            {portfolioHoldingRows.length > 0 && (
+                                                <div className="holdingSnapshotGrid portfolioHoldingsRows" aria-label="Portfolio holdings summary">
+                                                    {portfolioHoldingRows.map((row) => {
+                                                        const changeTrendClass = row.totalChange > PERFORMANCE_EPSILON
+                                                            ? "up"
+                                                            : row.totalChange < -PERFORMANCE_EPSILON
+                                                                ? "down"
+                                                                : "flat";
+
+                                                        return (
+                                                            <div className="portfolioHoldingDataRow" key={`${row.symbol}-${row.assetName}`}>
+                                                                <div className="holdingSnapshotCard portfolioHoldingDataCell">
+                                                                    <div className="holdingSnapshotLabel">Name</div>
+                                                                    <div className="holdingSnapshotValue">{row.assetName}</div>
+                                                                    <div className="portfolioHoldingSymbol">{row.symbol}</div>
+                                                                </div>
+
+                                                                <div className="holdingSnapshotCard portfolioHoldingDataCell">
+                                                                    <div className="holdingSnapshotLabel">Total value</div>
+                                                                    <div className="holdingSnapshotValue">
+                                                                        {formatCurrencyAmount(row.totalValue, row.currencyCode)}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="holdingSnapshotCard portfolioHoldingDataCell">
+                                                                    <div className="holdingSnapshotLabel">Change</div>
+                                                                    <div className={`holdingSnapshotValue holdingSnapshotValue${changeTrendClass}`}>
+                                                                        {formatSignedCurrencyAmount(row.totalChange, row.currencyCode)}
+                                                                    </div>
+                                                                    <div className={`holdingSnapshotSubValue holdingSnapshotValue${changeTrendClass}`}>
+                                                                        {formatSignedPercent(row.changePercent)}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="holdingSnapshotCard portfolioHoldingDataCell">
+                                                                    <div className="holdingSnapshotLabel">Number of shares</div>
+                                                                    <div className="holdingSnapshotValue">{formatUnits(row.totalUnits)}</div>
+                                                                </div>
+
+                                                                <div className="holdingSnapshotCard portfolioHoldingDataCell">
+                                                                    <div className="holdingSnapshotLabel">Average price</div>
+                                                                    <div className="holdingSnapshotValue">
+                                                                        {formatCurrencyAmount(row.averagePrice, row.currencyCode)}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
                                     </>
                                 )}
                             </>
