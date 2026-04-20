@@ -33,6 +33,43 @@
 .portfolioPerformance {
     font-size: 0.75em;
     font-weight: 300;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.portfolioPerformanceDelta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    font-size: 0.94em;
+}
+
+.portfolioPerformanceDelta.up {
+    color: #27cf75;
+}
+
+.portfolioPerformanceDelta.down {
+    color: #ff5a5a;
+}
+
+.portfolioPerformanceDelta.flat {
+    color: rgba(255, 255, 255, 0.74);
+}
+
+.portfolioPerformanceArrow {
+    font-size: 0.78rem;
+    line-height: 1;
+}
+
+.portfolioPerformanceRange {
+    margin-left: 2px;
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    opacity: 0.85;
 }
 
 .portfolioGraphContainer {
