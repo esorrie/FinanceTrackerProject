@@ -680,8 +680,8 @@ const Portfolio = () => {
                             )}
 
                             {!isLoading && !error && allocationItems.map((item, index) => {
-                                const boxWeight = Math.max(8, item.percentage);
-                                const boxBasis = Math.max(24, Math.min(68, item.percentage));
+                                const boxWeight = item.percentage;
+                                const boxBasis = Math.max(15, item.percentage);
                                 return (
                                     <div
                                         className="portfolioAllocationList allocationBox"
