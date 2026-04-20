@@ -106,6 +106,10 @@ public class HoldingService {
 
         UserAccount user = findOrCreateUser(username, currency);
         Portfolio portfolio = findOrCreatePortfolio(user, portfolioName);
+        LocalDate requestedPurchaseDate = request.purchaseDate() != null
+            ? request.purchaseDate()
+            : LocalDate.now();
+        LocalDateTime requestedPurchaseDateTime = requestedPurchaseDate.atStartOfDay();
 
         List<Holding> existingUserAssetHoldings = holdingRepository
                 .findByUserUserIdAndAssetAssetIdOrderByHoldingIdAsc(user.getUserId(), asset.getAssetId());
@@ -127,6 +131,7 @@ public class HoldingService {
             holding.setAvgPurchasePrice(request.avgPurchasePrice().setScale(MONEY_SCALE, RoundingMode.HALF_UP));
             holding.setLastPrice(quote.regularMarketPrice().setScale(MONEY_SCALE, RoundingMode.HALF_UP));
             holding.setPortfolioTotalValue(zeroMoney());
+            holding.setPurchaseDate(requestedPurchaseDateTime);
             holding = holdingRepository.save(holding);
         } else {
             Holding primaryHolding = selectPrimaryHolding(existingUserAssetHoldings, portfolio.getPortfolioId());
@@ -144,6 +149,8 @@ public class HoldingService {
             primaryHolding.setUnits(combinedUnits);
             primaryHolding.setAvgPurchasePrice(weightedAveragePrice);
             primaryHolding.setLastPrice(quote.regularMarketPrice().setScale(MONEY_SCALE, RoundingMode.HALF_UP));
+            LocalDate oldestPurchaseDate = resolveOldestPurchaseDate(existingUserAssetHoldings, requestedPurchaseDate);
+            primaryHolding.setPurchaseDate(oldestPurchaseDate.atStartOfDay());
             if (primaryHolding.getPortfolio() == null) {
                 primaryHolding.setPortfolio(portfolio);
             }
@@ -690,6 +697,23 @@ public class HoldingService {
         if (request.avgPurchasePrice() == null || request.avgPurchasePrice().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("avgPurchasePrice must be greater than 0.");
         }
+        if (request.purchaseDate() != null && request.purchaseDate().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("purchaseDate cannot be in the future.");
+        }
+    }
+
+    private LocalDate resolveOldestPurchaseDate(List<Holding> existingUserAssetHoldings, LocalDate requestedPurchaseDate) {
+        LocalDate oldest = requestedPurchaseDate;
+        for (Holding existing : existingUserAssetHoldings) {
+            if (existing == null || existing.getPurchaseDate() == null) {
+                continue;
+            }
+            LocalDate existingDate = existing.getPurchaseDate().toLocalDate();
+            if (existingDate.isBefore(oldest)) {
+                oldest = existingDate;
+            }
+        }
+        return oldest;
     }
 
     private YahooQuote fetchQuote(String symbol) {

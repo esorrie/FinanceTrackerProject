@@ -98,6 +98,10 @@ const Portfolio = () => {
         return topFive;
     }, [holdings]);
 
+    const sortedHoldings = useMemo(() => {
+        return [...holdings].sort((a, b) => Number(b.marketValueTarget || 0) - Number(a.marketValueTarget || 0));
+    }, [holdings]);
+
 
 
     return (
@@ -132,7 +136,7 @@ const Portfolio = () => {
                                 </div>
                             )}
 
-                            {!isLoading && !error && holdings.map((holding) => (
+                            {!isLoading && !error && sortedHoldings.map((holding) => (
                                 <div className="portfolioAssetsList" key={holding.holdingId}>
                                     <strong>{holding.symbol}</strong> -
                                     {" "}{formatNumber(holding.marketValueTarget)} {holding.targetCurrency}
