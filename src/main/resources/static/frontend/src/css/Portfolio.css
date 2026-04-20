@@ -130,8 +130,7 @@
     margin-bottom: 15px;
 }
 
-.portfolioGraphExpandButton,
-.portfolioGraphExitButton {
+.portfolioGraphExpandButton {
     background: #1e242b;
     color: rgba(255, 255, 255, 0.86);
     border: 1px solid #2f3945;
@@ -145,8 +144,7 @@
     cursor: pointer;
 }
 
-.portfolioGraphExpandButton:hover,
-.portfolioGraphExitButton:hover {
+.portfolioGraphExpandButton:hover {
     background: #26303a;
     color: #ffffff;
 }
@@ -606,10 +604,6 @@
     width: 0;
     height: 0;
     display: none;
-}
-
-.portfolioDataFullscreen .portfolioGraphSvg {
-    min-height: 360px;
 }
 
 @media (max-width: 1000px) {
