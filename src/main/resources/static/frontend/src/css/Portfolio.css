@@ -100,13 +100,34 @@
 }
 
 .portfolioGraphTitle {
-    font-size: 0.76rem;
+    font-size: 1rem;
     font-weight: 700;
+}
+
+.portfolioGraphTitlePortfolio {
+    font-size: 1rem;
+    line-height: 1.1;
+}
+
+.portfolioGraphTitleSelectedAsset {
+    font-size: 2rem;
+    line-height: 1.15;
+    margin-top: 15px;
+    word-break: break-word;
 }
 
 .portfolioGraphSubtitle {
     font-size: 0.64rem;
     color: rgba(255, 255, 255, 0.72);
+}
+
+.portfolioGraphSubtitlePortfolio {
+    font-size: 0.64rem;
+}
+
+.portfolioGraphSubtitleSelectedAsset {
+    font-size: 1rem;
+    margin-bottom: 30px;
 }
 
 .portfolioGraphExpandButton,

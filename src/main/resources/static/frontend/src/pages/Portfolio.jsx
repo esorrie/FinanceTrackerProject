@@ -170,7 +170,7 @@ const Portfolio = () => {
     const [selectedCurrency, setSelectedCurrency] = useState("GBP");
     const [portfolioSummary, setPortfolioSummary] = useState({
         totalMarketValueTarget: 0,
-        totalUnrealizedPnlTarget: 0,
+        totalInvestedTarget: 0,
         targetCurrency: "GBP"
     });
     const [isLoading, setIsLoading] = useState(true);
@@ -196,7 +196,6 @@ const Portfolio = () => {
     });
     const [isSelectedHoldingHistoryLoading, setIsSelectedHoldingHistoryLoading] = useState(false);
     const [selectedHoldingHistoryError, setSelectedHoldingHistoryError] = useState("");
-    const [isPortfolioFullscreen, setIsPortfolioFullscreen] = useState(false);
 
     const username = useMemo(() => user?.username || "demo", [user]);
 
@@ -235,14 +234,14 @@ const Portfolio = () => {
                 setHoldings(Array.isArray(data.holdings) ? data.holdings : []);
                 setPortfolioSummary({
                     totalMarketValueTarget: data.totalMarketValueTarget ?? 0,
-                    totalUnrealizedPnlTarget: data.totalUnrealizedPnlTarget ?? 0,
+                    totalInvestedTarget: data.totalInvestedTarget ?? 0,
                     targetCurrency: data.targetCurrency || selectedCurrency
                 });
             } else {
                 setHoldings([]);
                 setPortfolioSummary({
                     totalMarketValueTarget: 0,
-                    totalUnrealizedPnlTarget: 0,
+                    totalInvestedTarget: 0,
                     targetCurrency: selectedCurrency
                 });
                 setError(getErrorMessage(holdingsResult.reason, "Unable to load holdings"));
@@ -286,13 +285,7 @@ const Portfolio = () => {
             setSelectedHoldingHistoryError("");
             setIsSelectedHoldingHistoryLoading(false);
         }
-    }, [holdings, selectedHoldingSymbol]);
-
-    useEffect(() => {
-        if (selectedHoldingSymbol && isPortfolioFullscreen) {
-            setIsPortfolioFullscreen(false);
-        }
-    }, [selectedHoldingSymbol, isPortfolioFullscreen]);
+    }, [holdings, selectedHoldingSymbol, selectedCurrency]);
 
     useEffect(() => {
         let mounted = true;
@@ -362,6 +355,23 @@ const Portfolio = () => {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
+    };
+
+    const formatChartAxisValue = (value) => {
+        const numberValue = Number(value);
+        if (!Number.isFinite(numberValue)) return "0";
+
+        const absoluteValue = Math.abs(numberValue);
+        if (absoluteValue >= 1000) {
+            const compactValue = absoluteValue / 1000;
+            const compactLabel = compactValue.toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 1
+            });
+            return `${numberValue < 0 ? "-" : ""}${compactLabel}K`;
+        }
+
+        return formatNumber(numberValue);
     };
 
     const formatCurrencyAmount = (value, currencyCode) => {
@@ -636,6 +646,37 @@ const Portfolio = () => {
         return [...holdings].sort((a, b) => Number(b.marketValueTarget || 0) - Number(a.marketValueTarget || 0));
     }, [holdings]);
 
+    const selectedHoldingTradePrice = useMemo(() => {
+        if (!selectedHoldingSymbol) return null;
+
+        const selectedHolding = holdings.find(
+            (holding) => holding?.symbol === selectedHoldingSymbol
+        );
+        if (!selectedHolding) return null;
+
+        const tradePrice = Number(selectedHolding.lastPriceSource);
+        if (!Number.isFinite(tradePrice)) return null;
+
+        return {
+            value: tradePrice,
+            currencyCode: selectedHolding.sourceCurrency || selectedCurrency
+        };
+    }, [holdings, selectedHoldingSymbol, selectedCurrency]);
+
+    const selectedHoldingIdentity = useMemo(() => {
+        if (!selectedHoldingSymbol) return null;
+
+        const selectedHolding = holdings.find(
+            (holding) => holding?.symbol === selectedHoldingSymbol
+        );
+
+        return {
+            assetName: selectedHolding?.assetName || selectedHoldingHistoryMeta.assetName || selectedHoldingSymbol,
+            symbol: selectedHolding?.symbol || selectedHoldingHistoryMeta.symbol || selectedHoldingSymbol,
+            stockExchange: selectedHolding?.stockExchange || "Unknown exchange"
+        };
+    }, [holdings, selectedHoldingSymbol, selectedHoldingHistoryMeta.assetName, selectedHoldingHistoryMeta.symbol]);
+
     const selectedHoldingSnapshot = useMemo(() => {
         if (!selectedHoldingSymbol) return null;
 
@@ -882,6 +923,8 @@ const Portfolio = () => {
         </div>
     );
 
+    const showPortfolioGraphInDataPanel = !selectedHoldingSymbol;
+
     return (
         <>
             <div className="portfolioMainContainer">
@@ -915,7 +958,7 @@ const Portfolio = () => {
                         {formatNumber(portfolioSummary.totalMarketValueTarget)}
                     </div>
                     <div className="portfolioPerformance">
-                        <span>{activeCurrencySymbol} {formatNumber(portfolioSummary.totalUnrealizedPnlTarget)}</span>
+                        <span>{activeCurrencySymbol} {formatNumber(portfolioSummary.totalInvestedTarget)}</span>
                         <span className={`portfolioPerformanceDelta ${performanceTrendClass}`}>
                             <span className="portfolioPerformanceArrow" aria-hidden="true">{performanceArrow}</span>
                             <span>{formatSignedCurrencyAmount(timeframePerformance.changeAmount, activeCurrencyCode)}</span>
@@ -943,18 +986,18 @@ const Portfolio = () => {
                                     <>
                                         <div className="portfolioGraphHeaderRow">
                                             <div className="portfolioGraphHeader">
-                                                <div className="portfolioGraphTitle">Portfolio history</div>
-                                                <div className="portfolioGraphSubtitle">
+                                                <div className="portfolioGraphTitle portfolioGraphTitlePortfolio">Portfolio history</div>
+                                                <div className="portfolioGraphSubtitle portfolioGraphSubtitlePortfolio">
                                                     Value in {portfolioSummary.targetCurrency} | Range {portfolioActiveRangeLabel}
                                                 </div>
                                             </div>
                                             <button
                                                 type="button"
                                                 className="portfolioGraphExpandButton"
-                                                onClick={() => setIsPortfolioFullscreen(true)}
-                                                disabled={isPortfolioFullscreen}
-                                                aria-label="Open portfolio graph fullscreen"
-                                                title="Open fullscreen"
+                                                onClick={() => setSelectedHoldingSymbol("")}
+                                                disabled={!selectedHoldingSymbol}
+                                                aria-label="Show portfolio graph"
+                                                title="Show portfolio graph"
                                             >
                                                 <svg
                                                     viewBox="0 0 24 24"
@@ -993,7 +1036,7 @@ const Portfolio = () => {
                                                         className="portfolioGraphGridLine"
                                                     />
                                                     <text x="4" y={tick.y + 4} className="portfolioGraphAxisLabel">
-                                                        {formatNumber(tick.value)}
+                                                        {formatChartAxisValue(tick.value)}
                                                     </text>
                                                 </g>
                                             ))}
@@ -1073,8 +1116,8 @@ const Portfolio = () => {
                             )}
 
                             {!isLoading && !error && allocationItems.map((item, index) => {
-                                const boxWeight = Math.max(8, item.percentage);
-                                const boxBasis = Math.max(24, Math.min(68, item.percentage));
+                                const boxWeight = item.percentage;
+                                const boxBasis = Math.max(15, item.percentage);
                                 return (
                                     <div
                                         className="portfolioAllocationList allocationBox"
@@ -1094,34 +1137,14 @@ const Portfolio = () => {
                 </div>
 
                 <div className="portfolioDataContainer">
-                    <div className={`portfolioData${isPortfolioFullscreen ? " portfolioDataFullscreen" : ""}`}>
-                        {isPortfolioFullscreen ? (
+                    <div className="portfolioData">
+                        {showPortfolioGraphInDataPanel ? (
                             <>
-                                <div className="portfolioGraphHeaderRow">
-                                    <div className="portfolioGraphHeader">
-                                        <div className="portfolioGraphTitle">Portfolio history</div>
-                                        <div className="portfolioGraphSubtitle">
-                                            Expanded view | Value in {portfolioSummary.targetCurrency} | Range {portfolioActiveRangeLabel}
-                                        </div>
+                                <div className="portfolioGraphHeader">
+                                    <div className="portfolioGraphTitle portfolioGraphTitleSelectedAsset">Portfolio history</div>
+                                    <div className="portfolioGraphSubtitle portfolioGraphSubtitleSelectedAsset">
+                                        {`Value in ${portfolioSummary.targetCurrency} | Range ${portfolioActiveRangeLabel}`}
                                     </div>
-                                    <button
-                                        type="button"
-                                        className="portfolioGraphExitButton"
-                                        onClick={() => setIsPortfolioFullscreen(false)}
-                                        aria-label="Exit portfolio graph fullscreen"
-                                        title="Exit fullscreen"
-                                    >
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            className="portfolioGraphControlIcon"
-                                            aria-hidden="true"
-                                        >
-                                            <path
-                                                d="M5 16h3v3h2v-5H5v2Zm3-8H5v2h5V5H8v3Zm8 11h-2v-3h-2v5h5v-5h-2v3Zm-2-11V5h-2v5h5V8h-3Z"
-                                                fill="currentColor"
-                                            />
-                                        </svg>
-                                    </button>
                                 </div>
 
                                 {isHistoryLoading && (
@@ -1173,7 +1196,7 @@ const Portfolio = () => {
                                                         className="portfolioGraphGridLine"
                                                     />
                                                     <text x="4" y={tick.y + 4} className="portfolioGraphAxisLabel">
-                                                        {formatNumber(tick.value)}
+                                                        {formatChartAxisValue(tick.value)}
                                                     </text>
                                                 </g>
                                             ))}
@@ -1220,13 +1243,39 @@ const Portfolio = () => {
                             </>
                         ) : (
                             <>
-                                <div className="portfolioGraphHeader">
-                                    <div className="portfolioGraphTitle">Stock details</div>
-                                    <div className="portfolioGraphSubtitle">
-                                        {selectedHoldingSymbol
-                                            ? `${selectedHoldingHistoryMeta.assetName || selectedHoldingHistoryMeta.symbol || selectedHoldingSymbol} | Value in ${selectedHoldingHistoryMeta.targetCurrency || selectedCurrency} | Range ${stockActiveRangeLabel}`
-                                            : "Click a stock name in Investments to load its history graph here."}
+                                <div className="portfolioGraphHeaderRow">
+                                    <div className="portfolioGraphHeader">
+                                        <div className="portfolioGraphTitle portfolioGraphTitleSelectedAsset">
+                                            {selectedHoldingSymbol && selectedHoldingTradePrice
+                                                ? `${formatCurrencyAmount(selectedHoldingTradePrice.value, selectedHoldingTradePrice.currencyCode)}`
+                                                : "Stock details"}
+                                        </div>
+                                        <div className="portfolioGraphSubtitle portfolioGraphSubtitleSelectedAsset">
+                                            {selectedHoldingSymbol
+                                                ? `${selectedHoldingIdentity?.assetName || selectedHoldingSymbol} | ${selectedHoldingIdentity?.symbol || selectedHoldingSymbol} | ${selectedHoldingIdentity?.stockExchange || "Unknown exchange"}`
+                                                : "Click a stock name in Investments to load its history graph here."}
+                                        </div>
                                     </div>
+                                    {selectedHoldingSymbol && (
+                                        <button
+                                            type="button"
+                                            className="portfolioGraphExpandButton"
+                                            onClick={() => setSelectedHoldingSymbol("")}
+                                            aria-label="Show portfolio graph"
+                                            title="Show portfolio graph"
+                                        >
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                className="portfolioGraphControlIcon"
+                                                aria-hidden="true"
+                                            >
+                                                <path
+                                                    d="M7 14H5v5h5v-2H7v-3Zm0-4h3V8H7V5H5v5Zm10 7h-3v2h5v-5h-2v3Zm-3-12v2h3v3h2V5h-5Z"
+                                                    fill="currentColor"
+                                                />
+                                            </svg>
+                                        </button>
+                                    )}
                                 </div>
 
                                 {!selectedHoldingSymbol && (
@@ -1282,7 +1331,7 @@ const Portfolio = () => {
                                                         className="portfolioGraphGridLine"
                                                     />
                                                     <text x="4" y={tick.y + 4} className="portfolioGraphAxisLabel">
-                                                        {formatNumber(tick.value)}
+                                                        {formatChartAxisValue(tick.value)}
                                                     </text>
                                                 </g>
                                             ))}

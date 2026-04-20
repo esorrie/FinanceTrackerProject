@@ -8,6 +8,7 @@ public record HoldingCurrencyViewResponse(
         String portfolioName,
         String symbol,
         String assetName,
+        String stockExchange,
         BigDecimal units,
         String sourceCurrency,
         String targetCurrency,
