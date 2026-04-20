@@ -196,7 +196,6 @@ const Portfolio = () => {
     });
     const [isSelectedHoldingHistoryLoading, setIsSelectedHoldingHistoryLoading] = useState(false);
     const [selectedHoldingHistoryError, setSelectedHoldingHistoryError] = useState("");
-    const [isPortfolioFullscreen, setIsPortfolioFullscreen] = useState(false);
 
     const username = useMemo(() => user?.username || "demo", [user]);
 
@@ -287,12 +286,6 @@ const Portfolio = () => {
             setIsSelectedHoldingHistoryLoading(false);
         }
     }, [holdings, selectedHoldingSymbol, selectedCurrency]);
-
-    useEffect(() => {
-        if (selectedHoldingSymbol && isPortfolioFullscreen) {
-            setIsPortfolioFullscreen(false);
-        }
-    }, [selectedHoldingSymbol, isPortfolioFullscreen]);
 
     useEffect(() => {
         let mounted = true;
@@ -882,7 +875,7 @@ const Portfolio = () => {
         </div>
     );
 
-    const showPortfolioGraphInDataPanel = isPortfolioFullscreen || !selectedHoldingSymbol;
+    const showPortfolioGraphInDataPanel = !selectedHoldingSymbol;
 
     return (
         <>
@@ -953,10 +946,10 @@ const Portfolio = () => {
                                             <button
                                                 type="button"
                                                 className="portfolioGraphExpandButton"
-                                                onClick={() => setIsPortfolioFullscreen(true)}
-                                                disabled={isPortfolioFullscreen}
-                                                aria-label="Open portfolio graph fullscreen"
-                                                title="Open fullscreen"
+                                                onClick={() => setSelectedHoldingSymbol("")}
+                                                disabled={!selectedHoldingSymbol}
+                                                aria-label="Show portfolio graph"
+                                                title="Show portfolio graph"
                                             >
                                                 <svg
                                                     viewBox="0 0 24 24"
@@ -1096,38 +1089,14 @@ const Portfolio = () => {
                 </div>
 
                 <div className="portfolioDataContainer">
-                    <div className={`portfolioData${isPortfolioFullscreen ? " portfolioDataFullscreen" : ""}`}>
+                    <div className="portfolioData">
                         {showPortfolioGraphInDataPanel ? (
                             <>
-                                <div className="portfolioGraphHeaderRow">
-                                    <div className="portfolioGraphHeader">
-                                        <div className="portfolioGraphTitle portfolioGraphTitleSelectedAsset">Portfolio history</div>
-                                        <div className="portfolioGraphSubtitle portfolioGraphSubtitleSelectedAsset">
-                                            {isPortfolioFullscreen
-                                                ? `Expanded view | Value in ${portfolioSummary.targetCurrency} | Range ${portfolioActiveRangeLabel}`
-                                                : `Value in ${portfolioSummary.targetCurrency} | Range ${portfolioActiveRangeLabel}`}
-                                        </div>
+                                <div className="portfolioGraphHeader">
+                                    <div className="portfolioGraphTitle portfolioGraphTitleSelectedAsset">Portfolio history</div>
+                                    <div className="portfolioGraphSubtitle portfolioGraphSubtitleSelectedAsset">
+                                        {`Value in ${portfolioSummary.targetCurrency} | Range ${portfolioActiveRangeLabel}`}
                                     </div>
-                                    <button
-                                        type="button"
-                                        className={isPortfolioFullscreen ? "portfolioGraphExitButton" : "portfolioGraphExpandButton"}
-                                        onClick={() => setIsPortfolioFullscreen(!isPortfolioFullscreen)}
-                                        aria-label={isPortfolioFullscreen ? "Exit portfolio graph fullscreen" : "Open portfolio graph fullscreen"}
-                                        title={isPortfolioFullscreen ? "Exit fullscreen" : "Open fullscreen"}
-                                    >
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            className="portfolioGraphControlIcon"
-                                            aria-hidden="true"
-                                        >
-                                            <path
-                                                d={isPortfolioFullscreen
-                                                    ? "M5 16h3v3h2v-5H5v2Zm3-8H5v2h5V5H8v3Zm8 11h-2v-3h-2v5h5v-5h-2v3Zm-2-11V5h-2v5h5V8h-3Z"
-                                                    : "M7 14H5v5h5v-2H7v-3Zm0-4h3V8H7V5H5v5Zm10 7h-3v2h5v-5h-2v3Zm-3-12v2h3v3h2V5h-5Z"}
-                                                fill="currentColor"
-                                            />
-                                        </svg>
-                                    </button>
                                 </div>
 
                                 {isHistoryLoading && (
@@ -1226,17 +1195,39 @@ const Portfolio = () => {
                             </>
                         ) : (
                             <>
-                                <div className="portfolioGraphHeader">
-                                    <div className="portfolioGraphTitle portfolioGraphTitleSelectedAsset">
-                                        {selectedHoldingSymbol && selectedHoldingTradePrice
-                                            ? `${formatCurrencyAmount(selectedHoldingTradePrice.value, selectedHoldingTradePrice.currencyCode)}`
-                                            : "Stock details"}
+                                <div className="portfolioGraphHeaderRow">
+                                    <div className="portfolioGraphHeader">
+                                        <div className="portfolioGraphTitle portfolioGraphTitleSelectedAsset">
+                                            {selectedHoldingSymbol && selectedHoldingTradePrice
+                                                ? `${formatCurrencyAmount(selectedHoldingTradePrice.value, selectedHoldingTradePrice.currencyCode)}`
+                                                : "Stock details"}
+                                        </div>
+                                        <div className="portfolioGraphSubtitle portfolioGraphSubtitleSelectedAsset">
+                                            {selectedHoldingSymbol
+                                                ? `${selectedHoldingIdentity?.assetName || selectedHoldingSymbol} | ${selectedHoldingIdentity?.symbol || selectedHoldingSymbol} | ${selectedHoldingIdentity?.stockExchange || "Unknown exchange"}`
+                                                : "Click a stock name in Investments to load its history graph here."}
+                                        </div>
                                     </div>
-                                    <div className="portfolioGraphSubtitle portfolioGraphSubtitleSelectedAsset">
-                                        {selectedHoldingSymbol
-                                            ? `${selectedHoldingIdentity?.assetName || selectedHoldingSymbol} | ${selectedHoldingIdentity?.symbol || selectedHoldingSymbol} | ${selectedHoldingIdentity?.stockExchange || "Unknown exchange"}`
-                                            : "Click a stock name in Investments to load its history graph here."}
-                                    </div>
+                                    {selectedHoldingSymbol && (
+                                        <button
+                                            type="button"
+                                            className="portfolioGraphExpandButton"
+                                            onClick={() => setSelectedHoldingSymbol("")}
+                                            aria-label="Show portfolio graph"
+                                            title="Show portfolio graph"
+                                        >
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                className="portfolioGraphControlIcon"
+                                                aria-hidden="true"
+                                            >
+                                                <path
+                                                    d="M7 14H5v5h5v-2H7v-3Zm0-4h3V8H7V5H5v5Zm10 7h-3v2h5v-5h-2v3Zm-3-12v2h3v3h2V5h-5Z"
+                                                    fill="currentColor"
+                                                />
+                                            </svg>
+                                        </button>
+                                    )}
                                 </div>
 
                                 {!selectedHoldingSymbol && (
