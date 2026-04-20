@@ -131,4 +131,11 @@ PREPARE stmt_add_portfolio_total_value FROM @portfolio_total_value_sql;
 EXECUTE stmt_add_portfolio_total_value;
 DEALLOCATE PREPARE stmt_add_portfolio_total_value;
 
-DROP TABLE IF EXISTS asset_history;
+INSERT INTO tbl_user (username, currency_id, open_date)
+SELECT 'demo', 51, '2020-04-30 00:00:00'
+WHERE EXISTS (
+        SELECT 1 FROM tbl_currency WHERE currency_id = 51
+)
+    AND NOT EXISTS (
+            SELECT 1 FROM tbl_user WHERE LOWER(username) = 'demo'
+    );
