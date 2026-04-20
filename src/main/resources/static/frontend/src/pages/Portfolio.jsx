@@ -8,6 +8,7 @@ const CHART_PADDING_X = 36;
 const CHART_PADDING_Y = 18;
 const HISTORY_RANGE_OPTIONS = ["1D", "1W", "1M", "3M", "1Y", "MAX", "OPTIONAL"];
 const CUSTOM_RANGE_PATTERN = /^(\d+)\s*([DdWwMmYy])$/;
+const PERFORMANCE_EPSILON = 0.000001;
 
 const fetchJson = async (url, fallbackMessage) => {
     const response = await fetch(url);
@@ -195,6 +196,29 @@ const Portfolio = () => {
         }
     };
 
+    const formatSignedCurrencyAmount = (value, currencyCode) => {
+        const numberValue = Number(value);
+        if (!Number.isFinite(numberValue)) return formatCurrencyAmount(0, currencyCode);
+
+        const absoluteFormatted = formatCurrencyAmount(Math.abs(numberValue), currencyCode);
+        if (numberValue > PERFORMANCE_EPSILON) return `+${absoluteFormatted}`;
+        if (numberValue < -PERFORMANCE_EPSILON) return `-${absoluteFormatted}`;
+        return absoluteFormatted;
+    };
+
+    const formatSignedPercent = (value) => {
+        const numberValue = Number(value);
+        if (!Number.isFinite(numberValue)) return "0.00%";
+
+        const absoluteFormatted = Math.abs(numberValue).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        if (numberValue > PERFORMANCE_EPSILON) return `+${absoluteFormatted}%`;
+        if (numberValue < -PERFORMANCE_EPSILON) return `-${absoluteFormatted}%`;
+        return `${absoluteFormatted}%`;
+    };
+
     const getCurrencySymbol = (currencyCode) => {
         try {
             const parts = new Intl.NumberFormat(undefined, {
@@ -364,6 +388,44 @@ const Portfolio = () => {
         return activeRange;
     }, [activeRange, customRangeSpec]);
 
+    const timeframePerformance = useMemo(() => {
+        if (!filteredPortfolioSeries.length) {
+            return {
+                changeAmount: 0,
+                changePercent: 0,
+                trend: "flat"
+            };
+        }
+
+        const firstValue = Number(filteredPortfolioSeries[0].value || 0);
+        const latestValue = Number(filteredPortfolioSeries[filteredPortfolioSeries.length - 1].value || 0);
+        const changeAmount = latestValue - firstValue;
+        const changePercent = Math.abs(firstValue) > PERFORMANCE_EPSILON
+            ? (changeAmount / firstValue) * 100
+            : 0;
+
+        if (changeAmount > PERFORMANCE_EPSILON) {
+            return { changeAmount, changePercent, trend: "up" };
+        }
+
+        if (changeAmount < -PERFORMANCE_EPSILON) {
+            return { changeAmount, changePercent, trend: "down" };
+        }
+
+        return { changeAmount: 0, changePercent: 0, trend: "flat" };
+    }, [filteredPortfolioSeries]);
+
+    const performanceArrow = timeframePerformance.trend === "up"
+        ? "\u25B2"
+        : timeframePerformance.trend === "down"
+            ? "\u25BC"
+            : "\u2022";
+    const performanceTrendClass = timeframePerformance.trend === "up"
+        ? "up"
+        : timeframePerformance.trend === "down"
+            ? "down"
+            : "flat";
+
     const chartModel = useMemo(() => {
         if (!filteredPortfolioSeries.length) return null;
 
@@ -455,7 +517,13 @@ const Portfolio = () => {
                         {formatNumber(portfolioSummary.totalMarketValueTarget)}
                     </div>
                     <div className="portfolioPerformance">
-                        {activeCurrencySymbol} {formatNumber(portfolioSummary.totalUnrealizedPnlTarget)}
+                        <span>{activeCurrencySymbol} {formatNumber(portfolioSummary.totalUnrealizedPnlTarget)}</span>
+                        <span className={`portfolioPerformanceDelta ${performanceTrendClass}`}>
+                            <span className="portfolioPerformanceArrow" aria-hidden="true">{performanceArrow}</span>
+                            <span>{formatSignedCurrencyAmount(timeframePerformance.changeAmount, activeCurrencyCode)}</span>
+                            <span>({formatSignedPercent(timeframePerformance.changePercent)})</span>
+                            <span className="portfolioPerformanceRange">{activeRangeLabel}</span>
+                        </span>
                     </div>
 
                     <div className="portfolioContentContainer">
