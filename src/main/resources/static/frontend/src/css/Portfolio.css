@@ -3,6 +3,7 @@
     flex-direction: row;
     margin-right: 10%;
     margin-left: 10%;
+    color: white;
 }
 
 .portfolioPreviewContainer {
@@ -10,7 +11,7 @@
     flex-direction: column;
     padding: 20px 15px;
     margin: 20px 15px 20px 30px;
-    box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.75);
+    box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
     width: 25%;
 }
@@ -37,7 +38,7 @@
 .portfolioGraphContainer {
     padding: 15px 10px;
     height: 200px;
-    box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.75);
+    box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
 }
 
@@ -46,8 +47,8 @@
     flex-direction: column;
     margin-top: 20px;
     padding: 15px 15px;
-    height: 200px;
-    box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.75);
+    
+    box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
 }
 
@@ -75,8 +76,8 @@
     flex-direction: column;
     margin-top: 20px;
     padding: 15px 10px;
-    height: 200px;
-    box-shadow: 0px 0px 10px 0px rgba(0,0,0,0.75);
+    
+    box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
 }
 
@@ -87,6 +88,9 @@
 }
 
 .portfolioAllocationListContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     overflow-y: auto;
     flex: 1 1 auto;
 }
@@ -99,11 +103,33 @@
     padding-bottom: 5px;
 }
 
+.allocationBox {
+    min-height: 56px;
+    border: 1px solid rgba(0, 196, 204, 0.6);
+    border-radius: 0.4rem;
+    padding: 10px;
+    background: rgba(0, 196, 204, 0.08);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.allocationAssetName {
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.allocationAssetPercent {
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
 
 .portfolioDataContainer {
     padding: 20px 30px;
     margin: 20px 30px 20px 15px;;
-    box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.75);
+    box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
     width: 75%;
 }
