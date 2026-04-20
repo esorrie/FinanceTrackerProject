@@ -82,6 +82,7 @@ const Portfolio = () => {
     const { user } = useUser();
     const [holdings, setHoldings] = useState([]);
     const [portfolioHistoryPoints, setPortfolioHistoryPoints] = useState([]);
+    const [selectedCurrency, setSelectedCurrency] = useState("GBP");
     const [portfolioSummary, setPortfolioSummary] = useState({
         totalMarketValueTarget: 0,
         totalUnrealizedPnlTarget: 0,
@@ -122,6 +123,13 @@ const Portfolio = () => {
                 `/api/holdings/history/portfolio?username=${encodedUser}&interval=1d`,
                 "Failed to load portfolio history"
             );
+                const response = await fetch(
+                    `/api/holdings?username=${encodeURIComponent(username)}&currency=${encodeURIComponent(selectedCurrency)}`
+                );
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || "Failed to load holdings");
+                }
 
             try {
                 const [holdingsResult, portfolioHistoryResult] = await Promise.allSettled([
@@ -129,6 +137,13 @@ const Portfolio = () => {
                     portfolioHistoryRequest
                 ]);
 
+                setHoldings(Array.isArray(data.holdings) ? data.holdings : []);
+                setPortfolioSummary({
+                    totalMarketValueTarget: data.totalMarketValueTarget ?? 0,
+                    totalUnrealizedPnlTarget: data.totalUnrealizedPnlTarget ?? 0,
+                    targetCurrency: data.targetCurrency || selectedCurrency
+                });
+            } catch (err) {
                 if (!mounted) return;
 
                 if (holdingsResult.status === "fulfilled") {
@@ -171,7 +186,7 @@ const Portfolio = () => {
         return () => {
             mounted = false;
         };
-    }, [username]);
+    }, [username, selectedCurrency]);
 
     const formatNumber = (value) => {
         const numberValue = Number(value);
@@ -181,6 +196,40 @@ const Portfolio = () => {
             maximumFractionDigits: 2
         });
     };
+
+    const formatCurrencyAmount = (value, currencyCode) => {
+        const numberValue = Number(value);
+        if (Number.isNaN(numberValue)) return "0.00";
+
+        try {
+            return new Intl.NumberFormat(undefined, {
+                style: "currency",
+                currency: currencyCode || "GBP",
+                currencyDisplay: "narrowSymbol",
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(numberValue);
+        } catch {
+            return formatNumber(numberValue);
+        }
+    };
+
+    const getCurrencySymbol = (currencyCode) => {
+        try {
+            const parts = new Intl.NumberFormat(undefined, {
+                style: "currency",
+                currency: currencyCode || "GBP",
+                currencyDisplay: "narrowSymbol"
+            }).formatToParts(0);
+            return parts.find((part) => part.type === "currency")?.value || currencyCode;
+        } catch {
+            return currencyCode;
+        }
+    };
+
+    const currencyOptions = ["GBP", "USD", "EUR", "JPY", "CAD", "AUD", "CHF", "CNY"];
+    const activeCurrencyCode = portfolioSummary.targetCurrency || selectedCurrency;
+    const activeCurrencySymbol = getCurrencySymbol(activeCurrencyCode);
 
     const allocationItems = useMemo(() => {
         if (!holdings.length) return [];
@@ -376,6 +425,10 @@ const Portfolio = () => {
             };
         });
     }, [chartModel]);
+    const sortedHoldings = useMemo(() => {
+        return [...holdings].sort((a, b) => Number(b.marketValueTarget || 0) - Number(a.marketValueTarget || 0));
+    }, [holdings]);
+
 
     const graphDateRange = useMemo(() => {
         if (!filteredPortfolioSeries.length) {
@@ -393,10 +446,35 @@ const Portfolio = () => {
             <div className="portfolioMainContainer">
                 <div className="portfolioPreviewContainer">
                     <div className="portfolioValue">
-                        {portfolioSummary.targetCurrency} {formatNumber(portfolioSummary.totalMarketValueTarget)}
+                        <span style={{ position: "relative", display: "inline-block", marginRight: "6px" }}>
+                            <span>{activeCurrencySymbol}</span>
+                            <select
+                                aria-label="Select portfolio currency"
+                                value={selectedCurrency}
+                                onChange={(event) => setSelectedCurrency(event.target.value)}
+                                style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    opacity: 0,
+                                    border: "none",
+                                    background: "transparent",
+                                    appearance: "none",
+                                    WebkitAppearance: "none",
+                                    MozAppearance: "none",
+                                    cursor: "pointer"
+                                }}
+                            >
+                                {currencyOptions.map((currencyCode) => (
+                                    <option key={currencyCode} value={currencyCode}>
+                                        {currencyCode}
+                                    </option>
+                                ))}
+                            </select>
+                        </span>
+                        {formatNumber(portfolioSummary.totalMarketValueTarget)}
                     </div>
                     <div className="portfolioPerformance">
-                        {portfolioSummary.targetCurrency} {formatNumber(portfolioSummary.totalUnrealizedPnlTarget)}
+                        {activeCurrencySymbol} {formatNumber(portfolioSummary.totalUnrealizedPnlTarget)}
                     </div>
 
                     <div className="portfolioContentContainer">
@@ -534,10 +612,10 @@ const Portfolio = () => {
                                 </div>
                             )}
 
-                            {!isLoading && !error && holdings.map((holding) => (
+                            {!isLoading && !error && sortedHoldings.map((holding) => (
                                 <div className="portfolioAssetsList" key={holding.holdingId}>
                                     <strong>{holding.symbol}</strong> -
-                                    {" "}{formatNumber(holding.marketValueTarget)} {holding.targetCurrency}
+                                    {" "}{formatCurrencyAmount(holding.marketValueTarget, holding.targetCurrency)}
                                 </div>
                             ))}
                         </div>
@@ -564,7 +642,7 @@ const Portfolio = () => {
                                             flexBasis: `${boxBasis}%`
                                         }}
                                     >
-                                        <div className="allocationAssetName">{index + 1}. {item.label}</div>
+                                        <div className="allocationAssetName">{item.label}</div>
                                         <div className="allocationAssetPercent">{formatNumber(item.percentage)}%</div>
                                     </div>
                                 );

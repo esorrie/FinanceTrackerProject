@@ -1,19 +1,18 @@
 import React, { useState, useRef, useEffect } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import '../css/NavBar.css';
 import logo from "./Images/SpendX logo 3.png";
+import { useUser } from "../UserContext";
 
 const NavBar = () => {
+    const { user } = useUser();
     const [query, setQuery] = useState("");
     const [assets, setAssets] = useState([]);
     const [assetsLoading, setAssetsLoading] = useState(false);
     const [assetLoadError, setAssetLoadError] = useState("");
-    const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const dropdownRef = useRef(null);
+    const [addingSymbol, setAddingSymbol] = useState("");
     const searchRef = useRef(null);
-    const location = useLocation();
-    const currentPath = (location && location.pathname ? location.pathname.toLowerCase() : '/');
     const normalizedQuery = query.trim().toLowerCase();
 
     const loadAssets = async (signal) => {
@@ -77,15 +76,90 @@ const NavBar = () => {
     const handleSuggestionSelect = (asset) => {
         const nextQuery = asset.assetName || asset.assetSymbol || '';
         setQuery(nextQuery);
-        setShowSuggestions(false);
+    };
+
+    const addToHoldings = async (asset) => {
+        const symbol = asset?.assetSymbol;
+        if (!symbol) {
+            alert('Unable to add holding: missing stock symbol');
+            return;
+        }
+
+        const username = user?.username || 'demo';
+
+        const unitsRaw = window.prompt(`Enter units for ${symbol} (e.g. 1.5):`, '1');
+        if (!unitsRaw) return;
+        const units = Number(unitsRaw);
+        if (Number.isNaN(units) || units <= 0) {
+            alert('Invalid units');
+            return;
+        }
+
+        const avgPriceRaw = window.prompt(`Enter average purchase price for ${symbol} (e.g. 123.45):`, '1');
+        if (!avgPriceRaw) return;
+        const avgPurchasePrice = Number(avgPriceRaw);
+        if (Number.isNaN(avgPurchasePrice) || avgPurchasePrice <= 0) {
+            alert('Invalid average purchase price');
+            return;
+        }
+
+        const portfolioName = window.prompt('Enter portfolio name (or leave blank for default):', 'Portfolio');
+
+        const today = new Date().toISOString().slice(0, 10);
+        const purchaseDateRaw = window.prompt(`Enter purchase date for ${symbol} (YYYY-MM-DD):`, today);
+        if (!purchaseDateRaw) return;
+        const purchaseDate = purchaseDateRaw.trim();
+        const isDatePatternValid = /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate);
+        if (!isDatePatternValid) {
+            alert('Invalid date format. Use YYYY-MM-DD.');
+            return;
+        }
+        const parsedDate = new Date(`${purchaseDate}T00:00:00Z`);
+        const isCalendarDateValid = !Number.isNaN(parsedDate.getTime())
+            && parsedDate.toISOString().slice(0, 10) === purchaseDate;
+        if (!isCalendarDateValid) {
+            alert('Invalid calendar date.');
+            return;
+        }
+        if (parsedDate > new Date()) {
+            alert('Purchase date cannot be in the future.');
+            return;
+        }
+
+        try {
+            setAddingSymbol(symbol);
+
+            const response = await fetch('/api/holdings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    symbol,
+                    units,
+                    avgPurchasePrice,
+                    portfolioName: portfolioName || undefined,
+                    purchaseDate
+                })
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Failed to create holding');
+            }
+
+            await response.json();
+            alert(`Added ${symbol} to holdings`);
+            setShowSuggestions(false);
+        } catch (error) {
+            alert(`Error creating holding: ${error?.message || error}`);
+        } finally {
+            setAddingSymbol('');
+        }
     };
 
     // Close dropdowns when clicking outside
     useEffect(() => {
         function handleClickOutside(event) {
-            if (dropdownOpen && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setDropdownOpen(false);
-            }
             if (showSuggestions && searchRef.current && !searchRef.current.contains(event.target)) {
                 setShowSuggestions(false);
             }
@@ -93,36 +167,15 @@ const NavBar = () => {
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [dropdownOpen, showSuggestions]);
+    }, [showSuggestions]);
 
     return (
         <>
             <div className="navBarMain">
-                <div ref={dropdownRef} className="navBarTitle navDropdown" tabIndex="0" style={{position: 'relative'}}>
-                    <NavLink
-                        to="/"
-                        onClick={(e) => { e.preventDefault(); setDropdownOpen(!dropdownOpen); }}
-                        className="navDropdownToggle"
-                        aria-haspopup="true"
-                        aria-expanded={dropdownOpen}
-                    >
+                <div className="navBarTitle">
+                    <NavLink to="/">
                         <img src={logo} alt="Finance Tracker Logo" className="navBarLogo" />
-                        <span className={`navDropdownChevron ${dropdownOpen ? 'open' : ''}`} aria-hidden="true">▾</span>
                     </NavLink>
-
-                    <div className={`navDropdownMenu ${dropdownOpen ? 'open' : ''}`} aria-hidden={!dropdownOpen}>
-                        {!(currentPath === '/' || currentPath === '/portfolio') && (
-                            <NavLink to="/" onClick={() => setDropdownOpen(false)} className="navDropdownItem">
-                                Portfolio
-                            </NavLink>
-                        )}
-
-                        {currentPath !== '/stocks' && (
-                            <NavLink to="/stocks" onClick={() => setDropdownOpen(false)} className="navDropdownItem">
-                                Stocks
-                            </NavLink>
-                        )}
-                    </div>
                 </div>
 
                 <div className="navBarContent">
@@ -160,15 +213,27 @@ const NavBar = () => {
                                         <div className="navBarSearchSuggestionStatus">{assetLoadError}</div>
                                     ) : suggestions.length > 0 ? (
                                         suggestions.map((asset, index) => (
-                                            <button
-                                                type="button"
+                                            <div
                                                 key={`${asset.assetId ?? 'stock'}-${asset.assetSymbol ?? asset.assetName ?? 'item'}-${index}`}
-                                                className="navBarSearchSuggestion"
-                                                onClick={() => handleSuggestionSelect(asset)}
+                                                className="navBarSearchSuggestionRow"
                                             >
-                                                <span className="navBarSearchSuggestionName">{asset.assetName || 'Unknown stock'}</span>
-                                                <span className="navBarSearchSuggestionSymbol">{asset.assetSymbol || '-'}</span>
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    className="navBarSearchSuggestion"
+                                                    onClick={() => handleSuggestionSelect(asset)}
+                                                >
+                                                    <span className="navBarSearchSuggestionName">{asset.assetName || 'Unknown stock'}</span>
+                                                    <span className="navBarSearchSuggestionSymbol">{asset.assetSymbol || '-'}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="navBarSearchAddButton"
+                                                    onClick={() => addToHoldings(asset)}
+                                                    disabled={addingSymbol === asset.assetSymbol}
+                                                >
+                                                    {addingSymbol === asset.assetSymbol ? 'Adding...' : 'Add'}
+                                                </button>
+                                            </div>
                                         ))
                                     ) : (
                                         <div className="navBarSearchSuggestionStatus">No stocks found</div>

@@ -238,6 +238,15 @@
 .portfolioAssetsListContainer {
     overflow-y: auto;
     flex: 1 1 auto;
+    max-height: calc(4 * 25px);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.portfolioAssetsListContainer::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
 }
 
 .portfolioAssetsList {
@@ -246,6 +255,7 @@
     border-top: 1px solid #ccc;
     padding-top: 5px;
     padding-bottom: 5px;
+    justify-content: space-between;
 }
 
 .portfolioAllocationContainer {
@@ -253,7 +263,6 @@
     flex-direction: column;
     margin-top: 20px;
     padding: 15px 10px;
-    
     box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
 }
