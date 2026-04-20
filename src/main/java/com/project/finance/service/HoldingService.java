@@ -314,6 +314,7 @@ public class HoldingService {
                     holding.getPortfolio().getPortfolioName(),
                     holding.getAsset().getAssetSymbol(),
                     holding.getAsset().getAssetName(),
+                    holding.getAsset().getStockExchange(),
                     holding.getUnits(),
                     sourceCurrencyCode,
                     targetCurrencyCode,
