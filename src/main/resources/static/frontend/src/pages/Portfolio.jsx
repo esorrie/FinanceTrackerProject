@@ -882,6 +882,8 @@ const Portfolio = () => {
         </div>
     );
 
+    const showPortfolioGraphInDataPanel = isPortfolioFullscreen || !selectedHoldingSymbol;
+
     return (
         <>
             <div className="portfolioMainContainer">
@@ -1095,21 +1097,23 @@ const Portfolio = () => {
 
                 <div className="portfolioDataContainer">
                     <div className={`portfolioData${isPortfolioFullscreen ? " portfolioDataFullscreen" : ""}`}>
-                        {isPortfolioFullscreen ? (
+                        {showPortfolioGraphInDataPanel ? (
                             <>
                                 <div className="portfolioGraphHeaderRow">
                                     <div className="portfolioGraphHeader">
-                                        <div className="portfolioGraphTitle portfolioGraphTitlePortfolio">Portfolio history</div>
-                                        <div className="portfolioGraphSubtitle portfolioGraphSubtitlePortfolio">
-                                            Expanded view | Value in {portfolioSummary.targetCurrency} | Range {portfolioActiveRangeLabel}
+                                        <div className="portfolioGraphTitle portfolioGraphTitleSelectedAsset">Portfolio history</div>
+                                        <div className="portfolioGraphSubtitle portfolioGraphSubtitleSelectedAsset">
+                                            {isPortfolioFullscreen
+                                                ? `Expanded view | Value in ${portfolioSummary.targetCurrency} | Range ${portfolioActiveRangeLabel}`
+                                                : `Value in ${portfolioSummary.targetCurrency} | Range ${portfolioActiveRangeLabel}`}
                                         </div>
                                     </div>
                                     <button
                                         type="button"
-                                        className="portfolioGraphExitButton"
-                                        onClick={() => setIsPortfolioFullscreen(false)}
-                                        aria-label="Exit portfolio graph fullscreen"
-                                        title="Exit fullscreen"
+                                        className={isPortfolioFullscreen ? "portfolioGraphExitButton" : "portfolioGraphExpandButton"}
+                                        onClick={() => setIsPortfolioFullscreen(!isPortfolioFullscreen)}
+                                        aria-label={isPortfolioFullscreen ? "Exit portfolio graph fullscreen" : "Open portfolio graph fullscreen"}
+                                        title={isPortfolioFullscreen ? "Exit fullscreen" : "Open fullscreen"}
                                     >
                                         <svg
                                             viewBox="0 0 24 24"
@@ -1117,7 +1121,9 @@ const Portfolio = () => {
                                             aria-hidden="true"
                                         >
                                             <path
-                                                d="M5 16h3v3h2v-5H5v2Zm3-8H5v2h5V5H8v3Zm8 11h-2v-3h-2v5h5v-5h-2v3Zm-2-11V5h-2v5h5V8h-3Z"
+                                                d={isPortfolioFullscreen
+                                                    ? "M5 16h3v3h2v-5H5v2Zm3-8H5v2h5V5H8v3Zm8 11h-2v-3h-2v5h5v-5h-2v3Zm-2-11V5h-2v5h5V8h-3Z"
+                                                    : "M7 14H5v5h5v-2H7v-3Zm0-4h3V8H7V5H5v5Zm10 7h-3v2h5v-5h-2v3Zm-3-12v2h3v3h2V5h-5Z"}
                                                 fill="currentColor"
                                             />
                                         </svg>
