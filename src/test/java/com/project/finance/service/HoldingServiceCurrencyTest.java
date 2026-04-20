@@ -84,7 +84,7 @@ class HoldingServiceCurrencyTest {
                 ))
                 .thenReturn(Optional.of(eurToUsd));
 
-        HoldingsInCurrencyResponse response = holdingService.getHoldingsInCurrency("alice", "EUR");
+        HoldingsInCurrencyResponse response = holdingService.getHoldingsInCurrency("alice", "EUR", null);
 
         assertEquals("EUR", response.targetCurrency());
         assertEquals(new BigDecimal("16.0000"), response.totalInvestedTarget());
@@ -139,7 +139,7 @@ class HoldingServiceCurrencyTest {
                 .thenReturn(Optional.empty());
         when(exchangeRateRepository.save(any(ExchangeRate.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        HoldingsInCurrencyResponse response = holdingService.getHoldingsInCurrency("bob", "USD");
+        HoldingsInCurrencyResponse response = holdingService.getHoldingsInCurrency("bob", "USD", null);
 
         HoldingCurrencyViewResponse item = response.holdings().get(0);
         assertEquals(new BigDecimal("22.0000"), response.totalInvestedTarget());

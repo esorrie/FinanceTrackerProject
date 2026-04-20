@@ -9,9 +9,10 @@ export const UserProvider = ({ children }) => {
         name: 'Demo User',
         email: 'demo@example.com'
     });
+    const [selectedPortfolioId, setSelectedPortfolioId] = useState(null);
 
     return (
-        <UserContext.Provider value={{ user, setUser }}>
+        <UserContext.Provider value={{ user, setUser, selectedPortfolioId, setSelectedPortfolioId }}>
             {children}
         </UserContext.Provider>
     );

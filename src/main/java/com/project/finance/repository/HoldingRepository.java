@@ -9,7 +9,15 @@ public interface HoldingRepository extends JpaRepository<Holding, Integer> {
 
     List<Holding> findByUserUserIdOrderByHoldingIdAsc(Integer userId);
 
+    List<Holding> findByUserUserIdAndPortfolioPortfolioIdOrderByHoldingIdAsc(Integer userId, Integer portfolioId);
+
     List<Holding> findByUserUserIdAndAssetAssetIdOrderByHoldingIdAsc(Integer userId, Integer assetId);
+
+    List<Holding> findByUserUserIdAndAssetAssetIdAndPortfolioPortfolioIdOrderByHoldingIdAsc(
+            Integer userId,
+            Integer assetId,
+            Integer portfolioId
+    );
 
     Optional<Holding> findByUserUserIdAndAssetAssetIdAndPortfolioPortfolioId(Integer userId, Integer assetId, Integer portfolioId);
 
