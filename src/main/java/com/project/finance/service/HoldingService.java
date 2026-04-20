@@ -8,6 +8,8 @@ import com.project.finance.dto.HoldingCreateRequest;
 import com.project.finance.dto.HoldingCreateResponse;
 import com.project.finance.dto.HoldingHistoryPointResponse;
 import com.project.finance.dto.HoldingHistoryResponse;
+import com.project.finance.dto.HoldingUnitsUpdateRequest;
+import com.project.finance.dto.HoldingUnitsUpdateResponse;
 import com.project.finance.dto.HoldingPerformanceViewResponse;
 import com.project.finance.dto.HoldingsInCurrencyResponse;
 import com.project.finance.dto.PortfolioHistoryPointResponse;
@@ -672,6 +674,96 @@ public class HoldingService {
                 user.getUsername(),
                 previousCurrencyCode,
                 currency.getCurrencyCode().trim().toUpperCase(Locale.ROOT)
+        );
+    }
+
+    @Transactional
+    public HoldingUnitsUpdateResponse updateHoldingUnits(HoldingUnitsUpdateRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request body is required.");
+        }
+
+        String normalizedUsername = normalizeUsername(request.username());
+        String normalizedSymbol = normalizeSymbol(request.symbol());
+
+        UserAccount user = userAccountRepository.findByUsernameIgnoreCase(normalizedUsername)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + normalizedUsername));
+
+        Asset asset = assetRepository.findByAssetSymbolIgnoreCase(normalizedSymbol)
+                .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + normalizedSymbol));
+
+        List<Holding> existingUserAssetHoldings = holdingRepository
+                .findByUserUserIdAndAssetAssetIdOrderByHoldingIdAsc(user.getUserId(), asset.getAssetId());
+        if (existingUserAssetHoldings.isEmpty()) {
+            throw new IllegalArgumentException("No holdings found for symbol: " + normalizedSymbol);
+        }
+
+        BigDecimal totalUnits = existingUserAssetHoldings.stream()
+                .map(Holding::getUnits)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        boolean removeAll = Boolean.TRUE.equals(request.removeAll());
+        BigDecimal unitsToRemove = request.units() == null ? BigDecimal.ZERO : request.units();
+
+        if (!removeAll) {
+            if (unitsToRemove.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("units must be greater than 0 when removeAll is false.");
+            }
+        } else {
+            unitsToRemove = totalUnits;
+        }
+
+        if (unitsToRemove.compareTo(totalUnits) > 0) {
+            throw new IllegalArgumentException("Cannot remove more units than currently held.");
+        }
+
+        Set<Integer> impactedPortfolioIds = new LinkedHashSet<>();
+        for (Holding existing : existingUserAssetHoldings) {
+            if (existing.getPortfolio() != null && existing.getPortfolio().getPortfolioId() != null) {
+                impactedPortfolioIds.add(existing.getPortfolio().getPortfolioId());
+            }
+        }
+
+        if (removeAll || unitsToRemove.compareTo(totalUnits) == 0) {
+            holdingRepository.deleteAll(existingUserAssetHoldings);
+            refreshPortfolioTotals(impactedPortfolioIds);
+            return new HoldingUnitsUpdateResponse(
+                    user.getUserId(),
+                    user.getUsername(),
+                    asset.getAssetSymbol(),
+                    true,
+                    unitsToRemove.setScale(MONEY_SCALE, RoundingMode.HALF_UP),
+                    zeroMoney(),
+                    "Removed all units for " + asset.getAssetSymbol()
+            );
+        }
+
+        Holding primaryHolding = selectPrimaryHolding(existingUserAssetHoldings, null);
+        BigDecimal remainingUnits = totalUnits.subtract(unitsToRemove).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        primaryHolding.setUnits(remainingUnits);
+        if (primaryHolding.getPortfolioTotalValue() == null) {
+            primaryHolding.setPortfolioTotalValue(zeroMoney());
+        }
+        holdingRepository.save(primaryHolding);
+
+        Integer primaryHoldingId = primaryHolding.getHoldingId();
+        List<Holding> duplicateHoldings = existingUserAssetHoldings.stream()
+                .filter(item -> !item.getHoldingId().equals(primaryHoldingId))
+                .toList();
+        if (!duplicateHoldings.isEmpty()) {
+            holdingRepository.deleteAll(duplicateHoldings);
+        }
+
+        refreshPortfolioTotals(impactedPortfolioIds);
+
+        return new HoldingUnitsUpdateResponse(
+                user.getUserId(),
+                user.getUsername(),
+                asset.getAssetSymbol(),
+                false,
+                unitsToRemove.setScale(MONEY_SCALE, RoundingMode.HALF_UP),
+                remainingUnits,
+                "Updated units for " + asset.getAssetSymbol()
         );
     }
 

@@ -8,10 +8,11 @@ const NavBar = () => {
     const { user } = useUser();
     const [query, setQuery] = useState("");
     const [assets, setAssets] = useState([]);
+    const [heldUnitsBySymbol, setHeldUnitsBySymbol] = useState({});
     const [assetsLoading, setAssetsLoading] = useState(false);
     const [assetLoadError, setAssetLoadError] = useState("");
     const [showSuggestions, setShowSuggestions] = useState(false);
-    const [addingSymbol, setAddingSymbol] = useState("");
+    const [processingSymbol, setProcessingSymbol] = useState("");
     const searchRef = useRef(null);
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -40,11 +41,38 @@ const NavBar = () => {
         }
     };
 
+    const loadUserHoldings = async (signal) => {
+        const username = user?.username || 'demo';
+        try {
+            const response = await fetch(`/api/holdings?username=${encodeURIComponent(username)}`, signal ? { signal } : undefined);
+            if (!response.ok) {
+                throw new Error('Failed to fetch holdings');
+            }
+
+            const data = await response.json();
+            const holdings = Array.isArray(data?.holdings) ? data.holdings : [];
+            const nextHeldUnitsBySymbol = holdings.reduce((acc, holding) => {
+                const symbol = (holding?.symbol || '').toUpperCase();
+                if (!symbol) return acc;
+                const units = Number(holding?.units || 0);
+                acc[symbol] = (acc[symbol] || 0) + (Number.isFinite(units) ? units : 0);
+                return acc;
+            }, {});
+
+            setHeldUnitsBySymbol(nextHeldUnitsBySymbol);
+        } catch (error) {
+            if (error && error.name === 'AbortError') {
+                return;
+            }
+        }
+    };
+
     useEffect(() => {
         const controller = new AbortController();
         loadAssets(controller.signal);
+        loadUserHoldings(controller.signal);
         return () => controller.abort();
-    }, []);
+    }, [user?.username]);
 
     const suggestions = normalizedQuery
         ? assets
@@ -127,7 +155,7 @@ const NavBar = () => {
         }
 
         try {
-            setAddingSymbol(symbol);
+            setProcessingSymbol(symbol);
 
             const response = await fetch('/api/holdings', {
                 method: 'POST',
@@ -149,12 +177,123 @@ const NavBar = () => {
 
             await response.json();
             alert(`Added ${symbol} to holdings`);
+            await loadUserHoldings();
             setShowSuggestions(false);
         } catch (error) {
             alert(`Error creating holding: ${error?.message || error}`);
         } finally {
-            setAddingSymbol('');
+            setProcessingSymbol('');
         }
+    };
+
+    const updateHolding = async (asset) => {
+        const symbol = (asset?.assetSymbol || '').toUpperCase();
+        if (!symbol) {
+            alert('Unable to update holding: missing stock symbol');
+            return;
+        }
+
+        const heldUnits = Number(heldUnitsBySymbol[symbol] || 0);
+        if (!Number.isFinite(heldUnits) || heldUnits <= 0) {
+            await addToHoldings(asset);
+            return;
+        }
+
+        const action = window.prompt(
+            `${symbol}: choose action\n1 = Add units\n2 = Remove units\n3 = Remove all units`,
+            '1'
+        );
+        if (!action) return;
+
+        if (action.trim() === '1') {
+            await addToHoldings(asset);
+            return;
+        }
+
+        const username = user?.username || 'demo';
+
+        if (action.trim() === '3') {
+            const confirmed = window.confirm(`Remove all ${formatUnits(heldUnits)} units of ${symbol}?`);
+            if (!confirmed) return;
+
+            try {
+                setProcessingSymbol(symbol);
+                const response = await fetch('/api/holdings/units', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username,
+                        symbol,
+                        removeAll: true
+                    })
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || 'Failed to remove holding');
+                }
+
+                await response.json();
+                alert(`Removed all units for ${symbol}`);
+                await loadUserHoldings();
+                setShowSuggestions(false);
+            } catch (error) {
+                alert(`Error updating holding: ${error?.message || error}`);
+            } finally {
+                setProcessingSymbol('');
+            }
+            return;
+        }
+
+        if (action.trim() !== '2') {
+            alert('Invalid option. Use 1, 2, or 3.');
+            return;
+        }
+
+        const unitsRaw = window.prompt(`Enter units to remove from ${symbol} (max ${formatUnits(heldUnits)}):`, '1');
+        if (!unitsRaw) return;
+        const units = Number(unitsRaw);
+        if (Number.isNaN(units) || units <= 0) {
+            alert('Invalid units');
+            return;
+        }
+
+        try {
+            setProcessingSymbol(symbol);
+            const response = await fetch('/api/holdings/units', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    symbol,
+                    units,
+                    removeAll: false
+                })
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text || 'Failed to update holding');
+            }
+
+            const result = await response.json();
+            alert(`Updated ${symbol}. Remaining units: ${formatUnits(result.remainingUnits)}`);
+            await loadUserHoldings();
+            setShowSuggestions(false);
+        } catch (error) {
+            alert(`Error updating holding: ${error?.message || error}`);
+        } finally {
+            setProcessingSymbol('');
+        }
+    };
+
+    const formatUnits = (value) => {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return '0';
+        return parsed.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 4
+        });
     };
 
     // Close dropdowns when clicking outside
@@ -212,7 +351,11 @@ const NavBar = () => {
                                     ) : assetLoadError ? (
                                         <div className="navBarSearchSuggestionStatus">{assetLoadError}</div>
                                     ) : suggestions.length > 0 ? (
-                                        suggestions.map((asset, index) => (
+                                        suggestions.map((asset, index) => {
+                                            const symbol = (asset.assetSymbol || '').toUpperCase();
+                                            const heldUnits = Number(heldUnitsBySymbol[symbol] || 0);
+                                            const isHeld = Number.isFinite(heldUnits) && heldUnits > 0;
+                                            return (
                                             <div
                                                 key={`${asset.assetId ?? 'stock'}-${asset.assetSymbol ?? asset.assetName ?? 'item'}-${index}`}
                                                 className="navBarSearchSuggestionRow"
@@ -228,13 +371,14 @@ const NavBar = () => {
                                                 <button
                                                     type="button"
                                                     className="navBarSearchAddButton"
-                                                    onClick={() => addToHoldings(asset)}
-                                                    disabled={addingSymbol === asset.assetSymbol}
+                                                    onClick={() => (isHeld ? updateHolding(asset) : addToHoldings(asset))}
+                                                    disabled={processingSymbol === symbol}
                                                 >
-                                                    {addingSymbol === asset.assetSymbol ? 'Adding...' : 'Add'}
+                                                    {processingSymbol === symbol ? 'Working...' : (isHeld ? 'Update' : 'Add')}
                                                 </button>
                                             </div>
-                                        ))
+                                            );
+                                        })
                                     ) : (
                                         <div className="navBarSearchSuggestionStatus">No stocks found</div>
                                     )}

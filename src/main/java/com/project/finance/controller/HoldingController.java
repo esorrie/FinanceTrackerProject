@@ -3,6 +3,8 @@ package com.project.finance.controller;
 import com.project.finance.dto.HoldingCreateRequest;
 import com.project.finance.dto.HoldingCreateResponse;
 import com.project.finance.dto.HoldingHistoryResponse;
+import com.project.finance.dto.HoldingUnitsUpdateRequest;
+import com.project.finance.dto.HoldingUnitsUpdateResponse;
 import com.project.finance.dto.HoldingsInCurrencyResponse;
 import com.project.finance.dto.PortfolioHistoryResponse;
 import com.project.finance.dto.PortfolioPerformanceResponse;
@@ -32,6 +34,17 @@ public class HoldingController {
     public HoldingCreateResponse createHolding(@RequestBody HoldingCreateRequest request) {
         try {
             return holdingService.createHolding(request);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, ex.getMessage(), ex);
+        }
+    }
+
+    @PatchMapping("/units")
+    public HoldingUnitsUpdateResponse updateHoldingUnits(@RequestBody HoldingUnitsUpdateRequest request) {
+        try {
+            return holdingService.updateHoldingUnits(request);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
