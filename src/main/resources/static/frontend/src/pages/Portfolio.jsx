@@ -1,5 +1,6 @@
 import React from "react";
 import "../css/Portfolio.css";
+import { useUser } from "../UserContext";
 
 const Portfolio = () => {
 
