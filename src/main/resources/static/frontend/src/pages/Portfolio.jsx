@@ -404,6 +404,16 @@ const Portfolio = () => {
         return `${absoluteFormatted}%`;
     };
 
+    const formatUnits = (value) => {
+        const numberValue = Number(value);
+        if (!Number.isFinite(numberValue)) return "0";
+
+        return numberValue.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 4
+        });
+    };
+
     const getCurrencySymbol = (currencyCode) => {
         try {
             const parts = new Intl.NumberFormat(undefined, {
@@ -625,6 +635,44 @@ const Portfolio = () => {
     const sortedHoldings = useMemo(() => {
         return [...holdings].sort((a, b) => Number(b.marketValueTarget || 0) - Number(a.marketValueTarget || 0));
     }, [holdings]);
+
+    const selectedHoldingSnapshot = useMemo(() => {
+        if (!selectedHoldingSymbol) return null;
+
+        const holding = holdings.find((item) => item?.symbol === selectedHoldingSymbol);
+        if (!holding) return null;
+
+        const marketValue = Number(holding.marketValueTarget || 0);
+        const returnAmount = Number(holding.unrealizedPnlTarget || 0);
+        const investedAmount = Number(holding.investedAmountTarget || 0);
+        const returnPercent = Math.abs(investedAmount) > PERFORMANCE_EPSILON
+            ? (returnAmount / investedAmount) * 100
+            : 0;
+
+        let trend = "flat";
+        if (returnAmount > PERFORMANCE_EPSILON) {
+            trend = "up";
+        } else if (returnAmount < -PERFORMANCE_EPSILON) {
+            trend = "down";
+        }
+
+        return {
+            value: marketValue,
+            returnAmount,
+            returnPercent,
+            shares: Number(holding.units || 0),
+            averagePrice: Number(holding.avgPurchasePriceTarget || 0),
+            currency: holding.targetCurrency
+                || selectedHoldingHistoryMeta.targetCurrency
+                || selectedCurrency,
+            trend
+        };
+    }, [
+        holdings,
+        selectedHoldingSymbol,
+        selectedHoldingHistoryMeta.targetCurrency,
+        selectedCurrency
+    ]);
 
 
     const graphDateRange = useMemo(() => {
@@ -1265,6 +1313,50 @@ const Portfolio = () => {
                                                 );
                                             })}
                                         </div>
+
+                                        {selectedHoldingSnapshot && (
+                                            <div className="holdingSnapshotGrid" aria-label="Selected stock summary">
+                                                <div className="holdingSnapshotCard">
+                                                    <div className="holdingSnapshotLabel">Value</div>
+                                                    <div className="holdingSnapshotValue">
+                                                        {formatCurrencyAmount(
+                                                            selectedHoldingSnapshot.value,
+                                                            selectedHoldingSnapshot.currency
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="holdingSnapshotCard">
+                                                    <div className="holdingSnapshotLabel">Return</div>
+                                                    <div className={`holdingSnapshotValue holdingSnapshotValue${selectedHoldingSnapshot.trend}`}>
+                                                        {formatSignedCurrencyAmount(
+                                                            selectedHoldingSnapshot.returnAmount,
+                                                            selectedHoldingSnapshot.currency
+                                                        )}
+                                                    </div>
+                                                    <div className={`holdingSnapshotSubValue holdingSnapshotValue${selectedHoldingSnapshot.trend}`}>
+                                                        {formatSignedPercent(selectedHoldingSnapshot.returnPercent)}
+                                                    </div>
+                                                </div>
+
+                                                <div className="holdingSnapshotCard">
+                                                    <div className="holdingSnapshotLabel">Shares</div>
+                                                    <div className="holdingSnapshotValue">
+                                                        {formatUnits(selectedHoldingSnapshot.shares)}
+                                                    </div>
+                                                </div>
+
+                                                <div className="holdingSnapshotCard">
+                                                    <div className="holdingSnapshotLabel">Average price</div>
+                                                    <div className="holdingSnapshotValue">
+                                                        {formatCurrencyAmount(
+                                                            selectedHoldingSnapshot.averagePrice,
+                                                            selectedHoldingSnapshot.currency
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {renderRangeControls({
                                             ariaLabel: "Stock history range",
