@@ -47,7 +47,7 @@
     flex-direction: column;
     margin-top: 20px;
     padding: 15px 15px;
-    height: 200px;
+    
     box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
 }
@@ -76,7 +76,7 @@
     flex-direction: column;
     margin-top: 20px;
     padding: 15px 10px;
-    height: 200px;
+    
     box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
 }
@@ -88,6 +88,9 @@
 }
 
 .portfolioAllocationListContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     overflow-y: auto;
     flex: 1 1 auto;
 }
@@ -98,6 +101,28 @@
     border-top: 1px solid #ccc;
     padding-top: 5px;
     padding-bottom: 5px;
+}
+
+.allocationBox {
+    min-height: 56px;
+    border: 1px solid rgba(0, 196, 204, 0.6);
+    border-radius: 0.4rem;
+    padding: 10px;
+    background: rgba(0, 196, 204, 0.08);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.allocationAssetName {
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.allocationAssetPercent {
+    font-size: 0.82rem;
+    font-weight: 700;
 }
 
 
