@@ -463,7 +463,7 @@ const Portfolio = () => {
             .sort((a, b) => b.percentage - a.percentage);
 
         const topFive = sorted.slice(0, 4);
-        const other = sorted.slice(5);
+        const other = sorted.slice(4);
 
         if (other.length > 0) {
             const otherValue = other.reduce((sum, item) => sum + item.value, 0);
