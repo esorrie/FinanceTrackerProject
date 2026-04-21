@@ -22,13 +22,14 @@ import {
 const CURRENCY_OPTIONS = ["GBP", "USD", "EUR", "JPY", "CAD", "AUD", "CHF", "CNY"];
 
 const usePortfolioViewModel = () => {
-    const { user } = useUser();
+    const { user, selectedPortfolioId } = useUser();
     const [holdings, setHoldings] = useState([]);
     const [portfolioHistoryPoints, setPortfolioHistoryPoints] = useState([]);
     const [selectedCurrency, setSelectedCurrency] = useState("GBP");
     const [portfolioSummary, setPortfolioSummary] = useState({
         totalMarketValueTarget: 0,
         totalInvestedTarget: 0,
+        totalUnrealizedPnlTarget: 0,
         targetCurrency: "GBP"
     });
     const [isLoading, setIsLoading] = useState(true);
@@ -72,12 +73,15 @@ const usePortfolioViewModel = () => {
             setPortfolioCustomRangeError("");
 
             const encodedUser = encodeURIComponent(username);
+            const portfolioQuery = selectedPortfolioId != null
+                ? `&portfolioId=${encodeURIComponent(selectedPortfolioId)}`
+                : "";
             const holdingsRequest = fetchJson(
-                `/api/holdings?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}`,
+                `/api/holdings?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}${portfolioQuery}`,
                 "Failed to load holdings"
             );
             const portfolioHistoryRequest = fetchJson(
-                `/api/holdings/history/portfolio?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d`,
+                `/api/holdings/history/portfolio?username=${encodedUser}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d${portfolioQuery}`,
                 "Failed to load portfolio history"
             );
             const [holdingsResult, portfolioHistoryResult] = await Promise.allSettled([
@@ -93,6 +97,7 @@ const usePortfolioViewModel = () => {
                 setPortfolioSummary({
                     totalMarketValueTarget: data.totalMarketValueTarget ?? 0,
                     totalInvestedTarget: data.totalInvestedTarget ?? 0,
+                    totalUnrealizedPnlTarget: data.totalUnrealizedPnlTarget ?? 0,
                     targetCurrency: data.targetCurrency || selectedCurrency
                 });
             } else {
@@ -100,6 +105,7 @@ const usePortfolioViewModel = () => {
                 setPortfolioSummary({
                     totalMarketValueTarget: 0,
                     totalInvestedTarget: 0,
+                    totalUnrealizedPnlTarget: 0,
                     targetCurrency: selectedCurrency
                 });
                 setError(getErrorMessage(holdingsResult.reason, "Unable to load holdings"));
@@ -122,7 +128,7 @@ const usePortfolioViewModel = () => {
 
         fetchPortfolioData();
         return () => { mounted = false; };
-    }, [username, selectedCurrency]);
+    }, [username, selectedCurrency, selectedPortfolioId]);
 
     useEffect(() => {
         if (!selectedHoldingSymbol) return;
@@ -157,8 +163,11 @@ const usePortfolioViewModel = () => {
             try {
                 const encodedUser = encodeURIComponent(username);
                 const encodedSymbol = encodeURIComponent(selectedHoldingSymbol);
+                const portfolioQuery = selectedPortfolioId != null
+                    ? `&portfolioId=${encodeURIComponent(selectedPortfolioId)}`
+                    : "";
                 const selectedHoldingHistory = await fetchJson(
-                    `/api/holdings/history/asset?username=${encodedUser}&symbol=${encodedSymbol}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d`,
+                    `/api/holdings/history/asset?username=${encodedUser}&symbol=${encodedSymbol}&currency=${encodeURIComponent(selectedCurrency)}&interval=1d${portfolioQuery}`,
                     "Failed to load stock history"
                 );
 
@@ -190,7 +199,7 @@ const usePortfolioViewModel = () => {
 
         fetchSelectedHoldingHistory();
         return () => { mounted = false; };
-    }, [username, selectedCurrency, selectedHoldingSymbol]);
+    }, [username, selectedCurrency, selectedHoldingSymbol, selectedPortfolioId]);
 
     const activeCurrencyCode = portfolioSummary.targetCurrency || selectedCurrency;
     const activeCurrencySymbol = getCurrencySymbol(activeCurrencyCode);
@@ -306,32 +315,33 @@ const usePortfolioViewModel = () => {
         return portfolioActiveRange;
     }, [portfolioActiveRange, portfolioCustomRangeSpec]);
 
-    const timeframePerformance = useMemo(() => {
-        if (!filteredPortfolioSeries.length) {
-            return { changeAmount: 0, changePercent: 0, trend: "flat" };
-        }
-
-        const firstValue = Number(filteredPortfolioSeries[0].value || 0);
-        const latestValue = Number(filteredPortfolioSeries[filteredPortfolioSeries.length - 1].value || 0);
-        const changeAmount = latestValue - firstValue;
-        const changePercent = Math.abs(firstValue) > PERFORMANCE_EPSILON
-            ? (changeAmount / firstValue) * 100
+    const portfolioReturnPerformance = useMemo(() => {
+        const marketValue = Number(portfolioSummary.totalMarketValueTarget || 0);
+        const investedValue = Number(portfolioSummary.totalInvestedTarget || 0);
+        const unrealizedPnl = portfolioSummary.totalUnrealizedPnlTarget ?? (marketValue - investedValue);
+        const changeAmount = Number(unrealizedPnl || 0);
+        const changePercent = Math.abs(investedValue) > PERFORMANCE_EPSILON
+            ? (changeAmount / investedValue) * 100
             : 0;
 
         if (changeAmount > PERFORMANCE_EPSILON) return { changeAmount, changePercent, trend: "up" };
         if (changeAmount < -PERFORMANCE_EPSILON) return { changeAmount, changePercent, trend: "down" };
         return { changeAmount: 0, changePercent: 0, trend: "flat" };
-    }, [filteredPortfolioSeries]);
+    }, [
+        portfolioSummary.totalMarketValueTarget,
+        portfolioSummary.totalInvestedTarget,
+        portfolioSummary.totalUnrealizedPnlTarget
+    ]);
 
-    const performanceArrow = timeframePerformance.trend === "up"
+    const performanceArrow = portfolioReturnPerformance.trend === "up"
         ? "\u25B2"
-        : timeframePerformance.trend === "down"
+        : portfolioReturnPerformance.trend === "down"
             ? "\u25BC"
             : "\u2022";
 
-    const performanceTrendClass = timeframePerformance.trend === "up"
+    const performanceTrendClass = portfolioReturnPerformance.trend === "up"
         ? "up"
-        : timeframePerformance.trend === "down"
+        : portfolioReturnPerformance.trend === "down"
             ? "down"
             : "flat";
 
@@ -625,7 +635,7 @@ const usePortfolioViewModel = () => {
         handlePortfolioRangeClick,
         handleApplyPortfolioCustomRange,
         // Performance display
-        timeframePerformance,
+        portfolioReturnPerformance,
         performanceArrow,
         performanceTrendClass,
         // Selected holding

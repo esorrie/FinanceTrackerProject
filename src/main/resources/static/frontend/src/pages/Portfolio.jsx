@@ -28,7 +28,7 @@ const Portfolio = () => {
         portfolioActiveRange, portfolioActiveRangeLabel,
         isPortfolioCustomInputOpen, portfolioCustomRangeInput, setPortfolioCustomRangeInput,
         portfolioCustomRangeError, handlePortfolioRangeClick, handleApplyPortfolioCustomRange,
-        timeframePerformance, performanceArrow, performanceTrendClass,
+        portfolioReturnPerformance, performanceArrow, performanceTrendClass,
         selectedHoldingSymbol, setSelectedHoldingSymbol,
         selectedHoldingHistoryMeta, selectedHoldingHistoryError, isSelectedHoldingHistoryLoading,
         selectedHoldingChartModel, selectedHoldingYAxisTicks, selectedHoldingTimelineTicks,
@@ -76,9 +76,8 @@ const Portfolio = () => {
                         <span>{activeCurrencySymbol} {formatNumber(portfolioSummary.totalInvestedTarget)}</span>
                         <span className={`portfolioPerformanceDelta ${performanceTrendClass}`}>
                             <span className="portfolioPerformanceArrow" aria-hidden="true">{performanceArrow}</span>
-                            <span>{formatSignedCurrencyAmount(timeframePerformance.changeAmount, activeCurrencyCode)}</span>
-                            <span>({formatSignedPercent(timeframePerformance.changePercent)})</span>
-                            <span className="portfolioPerformanceRange">{portfolioActiveRangeLabel}</span>
+                            <span>{formatSignedCurrencyAmount(portfolioReturnPerformance.changeAmount, activeCurrencyCode)}</span>
+                            <span>({formatSignedPercent(portfolioReturnPerformance.changePercent)})</span>
                         </span>
                     </div>
 

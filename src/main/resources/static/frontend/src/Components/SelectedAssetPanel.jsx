@@ -135,8 +135,6 @@ const SelectedAssetPanel = ({
 
                 <PortfolioTimeline ticks={selectedHoldingTimelineTicks} keyPrefix="selected-timeline" />
 
-                <SelectedHoldingSnapshot snapshot={selectedHoldingSnapshot} />
-
                 <PortfolioRangeControls
                     ariaLabel="Stock history range"
                     activeRange={stockActiveRange}
@@ -147,6 +145,8 @@ const SelectedAssetPanel = ({
                     onCustomInputChange={onCustomInputChange}
                     onApplyCustomRange={onApplyStockCustomRange}
                 />
+
+                <SelectedHoldingSnapshot snapshot={selectedHoldingSnapshot} />
             </>
         )}
     </>
