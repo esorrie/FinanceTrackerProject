@@ -112,7 +112,7 @@
 .portfolioGraphTitleSelectedAsset {
     font-size: 2rem;
     line-height: 1.15;
-    margin-top: 15px;
+    /* margin-top: 10px; */
     word-break: break-word;
 }
 
@@ -127,11 +127,10 @@
 
 .portfolioGraphSubtitleSelectedAsset {
     font-size: 1rem;
-    margin-bottom: 30px;
+    margin-bottom: 15px;
 }
 
-.portfolioGraphExpandButton,
-.portfolioGraphExitButton {
+.portfolioGraphExpandButton {
     background: #1e242b;
     color: rgba(255, 255, 255, 0.86);
     border: 1px solid #2f3945;
@@ -145,8 +144,7 @@
     cursor: pointer;
 }
 
-.portfolioGraphExpandButton:hover,
-.portfolioGraphExitButton:hover {
+.portfolioGraphExpandButton:hover {
     background: #26303a;
     color: #ffffff;
 }
@@ -374,6 +372,34 @@
     gap: 8px;
 }
 
+.portfolioHoldingsRows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.portfolioHoldingDataRow {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.portfolioHoldingDataCell {
+    min-height: 58px;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 2px;
+}
+
+.portfolioHoldingDataCell .holdingSnapshotLabel,
+.portfolioHoldingDataCell .holdingSnapshotValue,
+.portfolioHoldingDataCell .holdingSnapshotSubValue,
+.portfolioHoldingDataCell .portfolioHoldingSymbol {
+    text-align: center;
+    width: 100%;
+}
+
 .holdingSnapshotCard {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.18);
@@ -401,6 +427,12 @@
 .holdingSnapshotSubValue {
     font-size: 0.66rem;
     line-height: 1.2;
+}
+
+.portfolioHoldingSymbol {
+    font-size: 0.59rem;
+    line-height: 1.2;
+    color: rgba(255, 255, 255, 0.72);
 }
 
 .holdingSnapshotValueup {
@@ -546,6 +578,8 @@
     box-shadow: 0 0 10px rgba(0, 196, 204, 0.8);
     border-radius: 0.5rem;
     width: 75%;
+    max-height: calc(100vh - 80px);
+    overflow: hidden;
 }
 
 .portfolioData {
@@ -553,14 +587,31 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-height: 0;
+    overflow: hidden;
 }
 
-.portfolioDataFullscreen .portfolioGraphSvg {
-    min-height: 360px;
+.portfolioDataScrollSection {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.portfolioDataScrollSection::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
 }
 
 @media (max-width: 1000px) {
     .holdingSnapshotGrid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .portfolioHoldingDataRow {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
