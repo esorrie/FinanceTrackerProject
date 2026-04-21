@@ -114,13 +114,12 @@ public class HoldingService {
         LocalDateTime requestedPurchaseDateTime = requestedPurchaseDate.atStartOfDay();
 
         List<Holding> existingUserAssetHoldings = holdingRepository
-                .findByUserUserIdAndAssetAssetIdOrderByHoldingIdAsc(user.getUserId(), asset.getAssetId());
+                .findByUserUserIdAndAssetAssetIdAndPortfolioPortfolioIdOrderByHoldingIdAsc(
+                        user.getUserId(),
+                        asset.getAssetId(),
+                        portfolio.getPortfolioId()
+                );
         Set<Integer> impactedPortfolioIds = new LinkedHashSet<>();
-        for (Holding existing : existingUserAssetHoldings) {
-            if (existing.getPortfolio() != null && existing.getPortfolio().getPortfolioId() != null) {
-                impactedPortfolioIds.add(existing.getPortfolio().getPortfolioId());
-            }
-        }
         impactedPortfolioIds.add(portfolio.getPortfolioId());
 
         Holding holding;
@@ -268,7 +267,11 @@ public class HoldingService {
     }
 
     @Transactional
-    public HoldingsInCurrencyResponse getHoldingsInCurrency(String username, String requestedCurrencyCode) {
+    public HoldingsInCurrencyResponse getHoldingsInCurrency(
+            String username,
+            String requestedCurrencyCode,
+            Integer requestedPortfolioId
+    ) {
         String normalizedUsername = normalizeUsername(username);
 
         UserAccount user = userAccountRepository.findByUsernameIgnoreCase(normalizedUsername)
@@ -277,7 +280,7 @@ public class HoldingService {
         Currency targetCurrency = resolveTargetCurrency(user, requestedCurrencyCode);
         String targetCurrencyCode = targetCurrency.getCurrencyCode().trim().toUpperCase(Locale.ROOT);
 
-        List<Holding> holdings = holdingRepository.findByUserUserIdOrderByHoldingIdAsc(user.getUserId());
+        List<Holding> holdings = findHoldingsForUser(user, requestedPortfolioId);
         List<HoldingCurrencyViewResponse> holdingViews = new ArrayList<>(holdings.size());
         Map<String, BigDecimal> exchangeRateCache = new HashMap<>();
 
@@ -346,7 +349,11 @@ public class HoldingService {
     }
 
     @Transactional
-    public PortfolioPerformanceResponse getPortfolioPerformance(String username, String requestedCurrencyCode) {
+    public PortfolioPerformanceResponse getPortfolioPerformance(
+            String username,
+            String requestedCurrencyCode,
+            Integer requestedPortfolioId
+    ) {
         String normalizedUsername = normalizeUsername(username);
 
         UserAccount user = userAccountRepository.findByUsernameIgnoreCase(normalizedUsername)
@@ -355,7 +362,7 @@ public class HoldingService {
         Currency targetCurrency = resolveTargetCurrency(user, requestedCurrencyCode);
         String targetCurrencyCode = targetCurrency.getCurrencyCode().trim().toUpperCase(Locale.ROOT);
 
-        List<Holding> holdings = holdingRepository.findByUserUserIdOrderByHoldingIdAsc(user.getUserId());
+        List<Holding> holdings = findHoldingsForUser(user, requestedPortfolioId);
         if (holdings.isEmpty()) {
             BigDecimal zeroPercent = BigDecimal.ZERO.setScale(PERCENT_SCALE, RoundingMode.HALF_UP);
             return new PortfolioPerformanceResponse(
@@ -475,7 +482,8 @@ public class HoldingService {
             String username,
             String symbol,
             String requestedCurrencyCode,
-            String requestedInterval
+            String requestedInterval,
+            Integer requestedPortfolioId
     ) {
         String normalizedUsername = normalizeUsername(username);
         String normalizedSymbol = normalizeSymbol(symbol);
@@ -486,7 +494,7 @@ public class HoldingService {
         Currency targetCurrency = resolveTargetCurrency(user, requestedCurrencyCode);
         String targetCurrencyCode = targetCurrency.getCurrencyCode().trim().toUpperCase(Locale.ROOT);
 
-        List<Holding> userHoldings = holdingRepository.findByUserUserIdOrderByHoldingIdAsc(user.getUserId());
+        List<Holding> userHoldings = findHoldingsForUser(user, requestedPortfolioId);
         List<Holding> symbolHoldings = userHoldings.stream()
                 .filter(holding -> holding.getAsset() != null
                         && StringUtils.hasText(holding.getAsset().getAssetSymbol())
@@ -572,7 +580,8 @@ public class HoldingService {
     public PortfolioHistoryResponse getPortfolioHistory(
             String username,
             String requestedCurrencyCode,
-            String requestedInterval
+            String requestedInterval,
+            Integer requestedPortfolioId
     ) {
         String normalizedUsername = normalizeUsername(username);
 
@@ -582,7 +591,7 @@ public class HoldingService {
         Currency targetCurrency = resolveTargetCurrency(user, requestedCurrencyCode);
         String targetCurrencyCode = targetCurrency.getCurrencyCode().trim().toUpperCase(Locale.ROOT);
 
-        List<Holding> holdings = holdingRepository.findByUserUserIdOrderByHoldingIdAsc(user.getUserId());
+        List<Holding> holdings = findHoldingsForUser(user, requestedPortfolioId);
         if (holdings.isEmpty()) {
             return new PortfolioHistoryResponse(
                     user.getUserId(),
@@ -763,8 +772,14 @@ public class HoldingService {
         Asset asset = assetRepository.findByAssetSymbolIgnoreCase(normalizedSymbol)
                 .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + normalizedSymbol));
 
-        List<Holding> existingUserAssetHoldings = holdingRepository
-                .findByUserUserIdAndAssetAssetIdOrderByHoldingIdAsc(user.getUserId(), asset.getAssetId());
+        Integer portfolioFilterId = resolvePortfolioFilterId(user, request.portfolioId());
+        List<Holding> existingUserAssetHoldings = portfolioFilterId == null
+                ? holdingRepository.findByUserUserIdAndAssetAssetIdOrderByHoldingIdAsc(user.getUserId(), asset.getAssetId())
+                : holdingRepository.findByUserUserIdAndAssetAssetIdAndPortfolioPortfolioIdOrderByHoldingIdAsc(
+                        user.getUserId(),
+                        asset.getAssetId(),
+                        portfolioFilterId
+                );
         if (existingUserAssetHoldings.isEmpty()) {
             throw new IllegalArgumentException("No holdings found for symbol: " + normalizedSymbol);
         }
@@ -809,7 +824,7 @@ public class HoldingService {
             );
         }
 
-        Holding primaryHolding = selectPrimaryHolding(existingUserAssetHoldings, null);
+        Holding primaryHolding = selectPrimaryHolding(existingUserAssetHoldings, portfolioFilterId);
         BigDecimal remainingUnits = totalUnits.subtract(unitsToRemove).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
         primaryHolding.setUnits(remainingUnits);
         if (primaryHolding.getPortfolioTotalValue() == null) {
@@ -1120,6 +1135,33 @@ public class HoldingService {
             throw new IllegalArgumentException("symbol cannot exceed 10 characters.");
         }
         return normalizedSymbol;
+    }
+
+    private Integer resolvePortfolioFilterId(UserAccount user, Integer requestedPortfolioId) {
+        if (requestedPortfolioId == null) {
+            return null;
+        }
+        if (requestedPortfolioId <= 0) {
+            throw new IllegalArgumentException("portfolioId must be greater than 0.");
+        }
+
+        Portfolio portfolio = portfolioRepository
+                .findByPortfolioIdAndUserUserId(requestedPortfolioId, user.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Portfolio not found for user: " + requestedPortfolioId
+                ));
+        return portfolio.getPortfolioId();
+    }
+
+    private List<Holding> findHoldingsForUser(UserAccount user, Integer requestedPortfolioId) {
+        Integer portfolioFilterId = resolvePortfolioFilterId(user, requestedPortfolioId);
+        if (portfolioFilterId == null) {
+            return holdingRepository.findByUserUserIdOrderByHoldingIdAsc(user.getUserId());
+        }
+        return holdingRepository.findByUserUserIdAndPortfolioPortfolioIdOrderByHoldingIdAsc(
+                user.getUserId(),
+                portfolioFilterId
+        );
     }
 
     private LocalDate resolveHoldingStartDate(Holding holding) {

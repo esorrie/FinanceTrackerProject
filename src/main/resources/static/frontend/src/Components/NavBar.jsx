@@ -1,19 +1,24 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import '../css/NavBar.css';
 import logo from "./Images/SpendX logo 3.png";
 import { useUser } from "../UserContext";
 
 const NavBar = () => {
-    const { user } = useUser();
+    const { user, selectedPortfolioId, setSelectedPortfolioId } = useUser();
     const [query, setQuery] = useState("");
     const [assets, setAssets] = useState([]);
+    const [portfolios, setPortfolios] = useState([]);
     const [heldUnitsBySymbol, setHeldUnitsBySymbol] = useState({});
     const [assetsLoading, setAssetsLoading] = useState(false);
+    const [portfoliosLoading, setPortfoliosLoading] = useState(false);
     const [assetLoadError, setAssetLoadError] = useState("");
+    const [portfolioLoadError, setPortfolioLoadError] = useState("");
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [showPortfolioMenu, setShowPortfolioMenu] = useState(false);
     const [processingSymbol, setProcessingSymbol] = useState("");
     const searchRef = useRef(null);
+    const portfolioRef = useRef(null);
     const normalizedQuery = query.trim().toLowerCase();
 
     const loadAssets = async (signal) => {
@@ -41,10 +46,56 @@ const NavBar = () => {
         }
     };
 
+    const loadPortfolios = async (signal) => {
+        const username = user?.username || 'demo';
+        setPortfoliosLoading(true);
+        setPortfolioLoadError("");
+
+        try {
+            const response = await fetch(
+                `/api/portfolios?username=${encodeURIComponent(username)}`,
+                signal ? { signal } : undefined
+            );
+            if (!response.ok) {
+                throw new Error('Failed to fetch portfolios');
+            }
+
+            const data = await response.json();
+            const nextPortfolios = Array.isArray(data?.portfolios) ? data.portfolios : [];
+            setPortfolios(nextPortfolios);
+            setSelectedPortfolioId((previousPortfolioId) => {
+                if (!nextPortfolios.length) return null;
+                const isCurrentSelectionAvailable = nextPortfolios.some(
+                    (portfolio) => portfolio?.portfolioId === previousPortfolioId
+                );
+                return isCurrentSelectionAvailable
+                    ? previousPortfolioId
+                    : nextPortfolios[0]?.portfolioId ?? null;
+            });
+        } catch (error) {
+            if (error && error.name === 'AbortError') {
+                return;
+            }
+            setPortfolios([]);
+            setPortfolioLoadError("Could not load portfolios.");
+            setSelectedPortfolioId(null);
+        } finally {
+            if (!signal || !signal.aborted) {
+                setPortfoliosLoading(false);
+            }
+        }
+    };
+
     const loadUserHoldings = async (signal) => {
         const username = user?.username || 'demo';
         try {
-            const response = await fetch(`/api/holdings?username=${encodeURIComponent(username)}`, signal ? { signal } : undefined);
+            const portfolioQuery = selectedPortfolioId != null
+                ? `&portfolioId=${encodeURIComponent(selectedPortfolioId)}`
+                : '';
+            const response = await fetch(
+                `/api/holdings?username=${encodeURIComponent(username)}${portfolioQuery}`,
+                signal ? { signal } : undefined
+            );
             if (!response.ok) {
                 throw new Error('Failed to fetch holdings');
             }
@@ -70,9 +121,15 @@ const NavBar = () => {
     useEffect(() => {
         const controller = new AbortController();
         loadAssets(controller.signal);
+        loadPortfolios(controller.signal);
+        return () => controller.abort();
+    }, [user?.username, setSelectedPortfolioId]);
+
+    useEffect(() => {
+        const controller = new AbortController();
         loadUserHoldings(controller.signal);
         return () => controller.abort();
-    }, [user?.username]);
+    }, [user?.username, selectedPortfolioId]);
 
     const suggestions = normalizedQuery
         ? assets
@@ -83,6 +140,11 @@ const NavBar = () => {
             })
             .slice(0, 8)
         : [];
+
+    const selectedPortfolio = useMemo(
+        () => portfolios.find((portfolio) => portfolio?.portfolioId === selectedPortfolioId) || null,
+        [portfolios, selectedPortfolioId]
+    );
 
     const handleSearch = (e) => {
         e.preventDefault();
@@ -131,7 +193,13 @@ const NavBar = () => {
             return;
         }
 
-        const portfolioName = window.prompt('Enter portfolio name (or leave blank for default):', 'Portfolio');
+        const defaultPortfolioName = selectedPortfolio?.portfolioName || 'Portfolio';
+        const portfolioNameInput = window.prompt(
+            'Enter portfolio name (or leave blank for default):',
+            defaultPortfolioName
+        );
+        if (portfolioNameInput === null) return;
+        const portfolioName = portfolioNameInput.trim() || defaultPortfolioName;
 
         const today = new Date().toISOString().slice(0, 10);
         const purchaseDateRaw = window.prompt(`Enter purchase date for ${symbol} (YYYY-MM-DD):`, today);
@@ -165,7 +233,7 @@ const NavBar = () => {
                     symbol,
                     units,
                     avgPurchasePrice,
-                    portfolioName: portfolioName || undefined,
+                    portfolioName,
                     purchaseDate
                 })
             });
@@ -224,6 +292,7 @@ const NavBar = () => {
                     body: JSON.stringify({
                         username,
                         symbol,
+                        portfolioId: selectedPortfolioId ?? undefined,
                         removeAll: true
                     })
                 });
@@ -266,6 +335,7 @@ const NavBar = () => {
                 body: JSON.stringify({
                     username,
                     symbol,
+                    portfolioId: selectedPortfolioId ?? undefined,
                     units,
                     removeAll: false
                 })
@@ -302,19 +372,69 @@ const NavBar = () => {
             if (showSuggestions && searchRef.current && !searchRef.current.contains(event.target)) {
                 setShowSuggestions(false);
             }
+            if (showPortfolioMenu && portfolioRef.current && !portfolioRef.current.contains(event.target)) {
+                setShowPortfolioMenu(false);
+            }
         }
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showSuggestions]);
+    }, [showPortfolioMenu, showSuggestions]);
 
     return (
         <>
             <div className="navBarMain">
-                <div className="navBarTitle">
-                    <NavLink to="/">
-                        <img src={logo} alt="Finance Tracker Logo" className="navBarLogo" />
-                    </NavLink>
+                <div className="navBarTitle" ref={portfolioRef}>
+                    <div className="navBarBrandRow">
+                        <NavLink to="/">
+                            <img src={logo} alt="Finance Tracker Logo" className="navBarLogo" />
+                        </NavLink>
+                        <button
+                            type="button"
+                            className={`navPortfolioChevron${showPortfolioMenu ? ' open' : ''}`}
+                            onClick={() => setShowPortfolioMenu((previous) => !previous)}
+                            aria-label="Select portfolio"
+                            aria-expanded={showPortfolioMenu}
+                        >
+                            <span aria-hidden="true">▼</span>
+                        </button>
+                    </div>
+
+                    <div className={`navPortfolioMenu${showPortfolioMenu ? ' open' : ''}`}>
+                        <div className="navPortfolioMenuHeader">Portfolios</div>
+
+                        {portfoliosLoading && (
+                            <div className="navPortfolioMenuStatus">Loading portfolios...</div>
+                        )}
+
+                        {!portfoliosLoading && portfolioLoadError && (
+                            <div className="navPortfolioMenuStatus">{portfolioLoadError}</div>
+                        )}
+
+                        {!portfoliosLoading && !portfolioLoadError && portfolios.length === 0 && (
+                            <div className="navPortfolioMenuStatus">No portfolios found.</div>
+                        )}
+
+                        {!portfoliosLoading && !portfolioLoadError && portfolios.map((portfolio) => (
+                            <button
+                                key={portfolio.portfolioId}
+                                type="button"
+                                className={`navPortfolioMenuItem${portfolio.portfolioId === selectedPortfolioId ? ' active' : ''}`}
+                                onClick={() => {
+                                    setSelectedPortfolioId(portfolio.portfolioId);
+                                    setShowPortfolioMenu(false);
+                                }}
+                            >
+                                {portfolio.portfolioName}
+                            </button>
+                        ))}
+
+                        {!portfoliosLoading && !portfolioLoadError && selectedPortfolio && (
+                            <div className="navPortfolioMenuMeta">
+                                Selected: {selectedPortfolio.portfolioName}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="navBarContent">
