@@ -55,10 +55,11 @@ public class HoldingController {
     @GetMapping
     public HoldingsInCurrencyResponse getHoldings(
             @RequestParam String username,
-            @RequestParam(required = false) String currency
+            @RequestParam(required = false) String currency,
+            @RequestParam(required = false) Integer portfolioId
     ) {
         try {
-            return holdingService.getHoldingsInCurrency(username, currency);
+            return holdingService.getHoldingsInCurrency(username, currency, portfolioId);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
@@ -83,10 +84,11 @@ public class HoldingController {
     @GetMapping("/performance")
     public PortfolioPerformanceResponse getPortfolioPerformance(
             @RequestParam String username,
-            @RequestParam(required = false) String currency
+            @RequestParam(required = false) String currency,
+            @RequestParam(required = false) Integer portfolioId
     ) {
         try {
-            return holdingService.getPortfolioPerformance(username, currency);
+            return holdingService.getPortfolioPerformance(username, currency, portfolioId);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
@@ -99,10 +101,11 @@ public class HoldingController {
             @RequestParam String username,
             @RequestParam String symbol,
             @RequestParam(required = false) String currency,
-            @RequestParam(required = false) String interval
+            @RequestParam(required = false) String interval,
+            @RequestParam(required = false) Integer portfolioId
     ) {
         try {
-            return holdingService.getHoldingHistory(username, symbol, currency, interval);
+            return holdingService.getHoldingHistory(username, symbol, currency, interval, portfolioId);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
@@ -114,10 +117,11 @@ public class HoldingController {
     public PortfolioHistoryResponse getPortfolioHistory(
             @RequestParam String username,
             @RequestParam(required = false) String currency,
-            @RequestParam(required = false) String interval
+            @RequestParam(required = false) String interval,
+            @RequestParam(required = false) Integer portfolioId
     ) {
         try {
-            return holdingService.getPortfolioHistory(username, currency, interval);
+            return holdingService.getPortfolioHistory(username, currency, interval, portfolioId);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
